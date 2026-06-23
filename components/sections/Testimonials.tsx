@@ -45,13 +45,22 @@ export default function Testimonials() {
         </h2>
       </div>
 
+      <style dangerouslySetInnerHTML={{ __html: `
+        .marquee-1 { animation: marquee 12s linear infinite; }
+        .marquee-2 { animation: marquee 10s linear infinite reverse; }
+        @media (min-width: 768px) {
+          .marquee-1 { animation: marquee 32s linear infinite; }
+          .marquee-2 { animation: marquee 26s linear infinite reverse; }
+        }
+      `}} />
+
       {/* Row 1 */}
       <div className="relative mb-4">
         <div className="absolute left-0 top-0 bottom-0 w-20 z-10 pointer-events-none"
           style={{ background: 'linear-gradient(90deg, #080808, transparent)' }} />
         <div className="absolute right-0 top-0 bottom-0 w-20 z-10 pointer-events-none"
           style={{ background: 'linear-gradient(-90deg, #080808, transparent)' }} />
-        <div className="flex" style={{ animation: 'marquee 32s linear infinite' }}>
+        <div className="flex marquee-1">
           {duped.map((t, i) => <Card key={i} t={t} />)}
         </div>
       </div>
@@ -62,7 +71,7 @@ export default function Testimonials() {
           style={{ background: 'linear-gradient(90deg, #080808, transparent)' }} />
         <div className="absolute right-0 top-0 bottom-0 w-20 z-10 pointer-events-none"
           style={{ background: 'linear-gradient(-90deg, #080808, transparent)' }} />
-        <div className="flex" style={{ animation: 'marquee 26s linear infinite reverse' }}>
+        <div className="flex marquee-2">
           {[...testimonials.slice(3), ...testimonials.slice(3), ...testimonials.slice(3), ...testimonials.slice(3)].map((t, i) => <Card key={i} t={t} />)}
         </div>
       </div>

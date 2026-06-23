@@ -60,9 +60,9 @@ export default function Contact() {
             </p>
 
             <div className="space-y-4 mb-10">
-              <a href="mailto:hello@mechstrek.com" className="flex items-center gap-3 text-sm text-[#666] hover:text-white transition-colors group">
+              <a href="mailto:mechstrek@gmail.com" className="flex items-center gap-3 text-sm text-[#666] hover:text-white transition-colors group">
                 <Mail size={14} className="flex-shrink-0" />
-                hello@mechstrek.com
+                mechstrek@gmail.com
               </a>
               <a href="tel:+919876543210" className="flex items-center gap-3 text-sm text-[#666] hover:text-white transition-colors group">
                 <Phone size={14} className="flex-shrink-0" />

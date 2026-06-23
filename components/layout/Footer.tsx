@@ -18,10 +18,10 @@ export default function Footer() {
             <p className="text-sm text-[#555] leading-relaxed mb-5 max-w-xs">
               We build premium websites that grow businesses and leave lasting impressions.
             </p>
-            <a href="mailto:hello@mechstrek.com"
+            <a href="mailto:mechstrek@gmail.com"
               className="inline-flex items-center gap-2 text-sm text-[#666] hover:text-white transition-colors">
               <Mail size={13} />
-              hello@mechstrek.com
+              mechstrek@gmail.com
             </a>
           </div>
 
@@ -44,7 +44,7 @@ export default function Footer() {
 
         <div className="divider mb-6" />
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <p className="text-xs text-[#444]">© {new Date().getFullYear()} Mech Strek. All rights reserved.</p>
+          <p className="text-xs text-[#444]">© {new Date().getFullYear()} Mech Strek.</p>
           <p className="text-xs text-[#333]">Crafted for the web.</p>
         </div>
       </div>

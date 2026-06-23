@@ -6,6 +6,14 @@ import { ExternalLink } from 'lucide-react';
 
 const projects = [
   {
+    id: 5,
+    title: 'Xion',
+    category: 'Robotics / AI',
+    desc: 'Advanced robotics platform showcasing cutting-edge AI integration.',
+    url: 'https://xion26-neurobotix.vercel.app/home',
+    tags: ['Next.js', 'AI', 'Tailwind'],
+  },
+  {
     id: 1,
     title: 'Shri Portfolio',
     category: 'Portfolio',
@@ -68,16 +76,14 @@ function ProjectCard({ p, i }: { p: typeof projects[0]; i: number }) {
           : 'perspective(800px) rotateX(0deg) rotateY(0deg) translateY(0)',
         transition: hovered ? 'transform 0.1s ease' : 'transform 0.5s ease',
       }}
-      className="group"
+      className="group p-5 rounded-2xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-2xl shadow-xl hover:bg-white/[0.06] hover:border-white/[0.15] hover:shadow-2xl transition-all duration-300 relative overflow-hidden"
     >
+      {/* Glare effect */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.03] to-transparent pointer-events-none" />
+
       {/* Preview */}
       <div
-        className="relative rounded-xl overflow-hidden mb-4"
-        style={{
-          background: '#111',
-          border: `1px solid ${hovered ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`,
-          transition: 'border-color 0.25s ease',
-        }}
+        className="relative rounded-xl overflow-hidden mb-5 bg-black/40 border border-white/5"
       >
         {/* Browser bar */}
         <div

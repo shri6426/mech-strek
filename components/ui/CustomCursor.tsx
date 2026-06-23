@@ -57,7 +57,7 @@ export default function CustomCursor() {
         width="24"
         height="24"
         viewBox="0 0 24 24"
-        fill="#0EA5E9"
+        fill="black"
         stroke="white"
         strokeWidth="1.5"
         className="drop-shadow-md"
@@ -69,7 +69,7 @@ export default function CustomCursor() {
         <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.42a.5.5 0 0 0 .35-.85L5.5 3.21z" />
       </svg>
       <div 
-        className="absolute left-5 top-5 bg-[#0EA5E9] text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow-md tracking-wide"
+        className="absolute left-5 top-5 bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow-md tracking-wide"
         style={{
           opacity: isHovering ? 1 : 0,
           transform: isHovering ? 'scale(1)' : 'scale(0.8)',
@@ -77,7 +77,7 @@ export default function CustomCursor() {
           transition: 'all 0.2s ease',
         }}
       >
-        Mech Strek
+        you
       </div>
     </div>
   );
