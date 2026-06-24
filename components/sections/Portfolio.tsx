@@ -9,8 +9,8 @@ const projects = [
     id: 6,
     title: 'Aashish Niranjan',
     category: 'Portfolio',
-    desc: 'Clean, interactive developer portfolio showcasing expertise and projects.',
-    url: 'https://aashish-niranjan.vercel.app/',
+    desc: 'Embedded Systems portfolio with Interactive UI and Cyber-Engineer Aesthetic.',
+    url: 'https://aashishniranjanb.vercel.app/',
     tags: ['Next.js', 'Tailwind', 'Framer Motion'],
   },
   {
