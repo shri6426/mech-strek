@@ -6,6 +6,14 @@ import { ExternalLink } from 'lucide-react';
 
 const projects = [
   {
+    id: 6,
+    title: 'Aashish Niranjan',
+    category: 'Portfolio',
+    desc: 'Clean, interactive developer portfolio showcasing expertise and projects.',
+    url: 'https://aashish-niranjan.vercel.app/',
+    tags: ['Next.js', 'Tailwind', 'Framer Motion'],
+  },
+  {
     id: 5,
     title: 'Xion',
     category: 'Robotics / AI',

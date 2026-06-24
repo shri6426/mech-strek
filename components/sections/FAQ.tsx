@@ -15,7 +15,7 @@ const faqs = [
   { q: 'Do you help with SEO?', a: 'Every website is built with SEO best practices — semantic HTML, proper meta tags, Core Web Vitals optimisation, and fast load times.' },
 ];
 
-function Item({ faq, i }: { faq: typeof faqs[0]; i: number }) {
+function Item({ faq }: { faq: typeof faqs[0] }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
@@ -89,7 +89,7 @@ export default function FAQ() {
             className="lg:col-span-7 lg:col-start-6"
             style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
           >
-            {faqs.map((f, i) => <Item key={f.q} faq={f} i={i} />)}
+            {faqs.map((f) => <Item key={f.q} faq={f} />)}
           </motion.div>
         </div>
       </div>
