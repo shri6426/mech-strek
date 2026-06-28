@@ -1,0 +1,279 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   TOKENS
+   ============================================ */
+:root {
+  --bg: #090514;
+  --surface: #140d26;
+  --surface-2: #1e1338;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.18);
+  --text-primary: #f8f7fa;
+  --text-secondary: #a69fba;
+  --text-muted: #6e658b;
+  --accent: #d946ef;
+}
+
+/* ============================================
+   BASE
+   ============================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+body:not(.use-default-cursor) {
+  cursor: none;
+}
+
+body:not(.use-default-cursor) *, 
+body:not(.use-default-cursor) *::before, 
+body:not(.use-default-cursor) *::after {
+  cursor: none !important;
+}
+
+body.use-default-cursor,
+body.use-default-cursor *,
+body.use-default-cursor *::before,
+body.use-default-cursor *::after {
+  cursor: default !important;
+}
+
+body.use-default-cursor a,
+body.use-default-cursor button,
+body.use-default-cursor select,
+body.use-default-cursor input,
+body.use-default-cursor textarea,
+body.use-default-cursor [role="button"] {
+  cursor: pointer !important;
+}
+
+/* ============================================
+   SCROLLBAR
+   ============================================ */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+/* ============================================
+   TYPOGRAPHY
+   ============================================ */
+.font-display {
+  font-family: 'Outfit', system-ui, sans-serif;
+}
+
+/* ============================================
+   CUSTOM CURSOR
+   ============================================ */
+.cursor-circle {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 999999;
+  transform: translate(-50%, -50%);
+  transition: width 0.25s ease, height 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+  mix-blend-mode: difference;
+}
+
+.cursor-circle.hovering {
+  width: 44px;
+  height: 44px;
+  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 4px;
+  background: white;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 999999;
+  transform: translate(-50%, -50%);
+}
+
+/* ============================================
+   SCROLL PROGRESS
+   ============================================ */
+.scroll-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 1px;
+  background: rgba(255,255,255,0.5);
+  z-index: 99999;
+  transform-origin: left;
+}
+
+/* ============================================
+   DIVIDER
+   ============================================ */
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
+/* ============================================
+   CARDS
+   ============================================ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: border-color 0.25s ease, background 0.25s ease;
+}
+
+.card:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-2);
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  background: white;
+  color: #080808;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 8px;
+  border: none;
+  transition: background 0.2s ease, transform 0.2s ease;
+  cursor: none;
+}
+
+.btn-primary:hover {
+  background: #e5e5e5;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  cursor: none;
+}
+
+.btn-secondary:hover {
+  border-color: var(--border-hover);
+  background: rgba(255,255,255,0.03);
+  transform: translateY(-1px);
+}
+
+/* ============================================
+   SECTION TAG
+   ============================================ */
+.section-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.section-tag::before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 1px;
+  background: var(--text-muted);
+}
+
+/* ============================================
+   MARQUEE (testimonials)
+   ============================================ */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ============================================
+   SELECTION
+   ============================================ */
+::selection {
+  background: rgba(255,255,255,0.15);
+  color: white;
+}
+
+/* ============================================
+   LOADING
+   ============================================ */
+.loading-bar {
+  height: 1px;
+  background: white;
+  animation: load-bar 1.8s ease-in-out forwards;
+}
+
+@keyframes load-bar {
+  0%   { width: 0%; }
+  60%  { width: 75%; }
+  100% { width: 100%; }
+}
+
+/* ============================================
+   SKELETON SHIMMER (Hero animation)
+   ============================================ */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.09) 40%,
+    rgba(255,255,255,0.04) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ============================================
+   GRADIENT SHIFT (Powered by text)
+   ============================================ */
+@keyframes gradient-shift {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}

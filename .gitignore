@@ -1,0 +1,71 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment files (NEVER COMMIT SECRETS)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python virtualenvs
+.venv/
+venv/
+env/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Node
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Build artifacts
+build/
+dist/
+
+# TypeScript
+*.tsbuildinfo
+
+# Graphify AI index (generated, not source)
+graphify-out/
+
+# Uploads (user-generated content)
+uploads/
+
+# Logs
+*.log
+
+# Test caches
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Root-level dev artifacts
+graphify-out/
+PRD*.md
+mech-strek-invoice.html
+mechstrek-architecture/
+docs/
+CLAUDE.md
