@@ -1,3 +1,4 @@
 # MechOS Dev History Log
 [2026-06-29T00:37:03.962785] init: setup next.js frontend and fastapi backend
 [2026-06-29T00:37:42.962785] feat: add postgresql database models via sqlalchemy
+[2026-06-29T19:13:00.962785] feat: add user authentication schemas and dependencies
