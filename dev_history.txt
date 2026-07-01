@@ -15,3 +15,4 @@
 [2026-07-01T19:34:27.962785] feat: support payment processing simulation
 [2026-07-01T21:00:07.962785] feat: add client portal layout and sidebar
 [2026-07-01T23:49:01.962785] feat: implement collapsible proposal scopes
+[2026-07-02T00:06:58.962785] fix: update endpoint paths to client portal projects
