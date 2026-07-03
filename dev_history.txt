@@ -25,3 +25,4 @@
 [2026-07-03T01:31:30.962785] feat: add skeleton loaders to client dashboard
 [2026-07-03T01:41:21.962785] feat: add notifications database models and schema
 [2026-07-03T01:54:21.962785] feat: implement backend notification push helper
+[2026-07-03T20:04:02.962785] feat: trigger notification on new project invoice
