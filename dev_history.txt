@@ -26,3 +26,4 @@
 [2026-07-03T01:41:21.962785] feat: add notifications database models and schema
 [2026-07-03T01:54:21.962785] feat: implement backend notification push helper
 [2026-07-03T20:04:02.962785] feat: trigger notification on new project invoice
+[2026-07-03T21:38:21.962785] feat: notify admin when client pays invoice
