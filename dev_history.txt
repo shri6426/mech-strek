@@ -36,3 +36,4 @@
 [2026-07-04T19:16:31.962785] feat: mount notification bell in admin layout sidebar
 [2026-07-04T20:28:13.962785] chore: run alembic database migrations
 [2026-07-04T21:03:26.962785] feat: add secure initial admin credentials env configuration
+[2026-07-04T21:25:49.962785] feat: add transactional invite email service using Resend
