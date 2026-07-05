@@ -69,3 +69,44 @@ async def async_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, 
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+
+from app.models.user import User, UserRole
+from app.core.security import get_password_hash, create_access_token
+
+@pytest.fixture(scope="function")
+async def client_user(db_session: AsyncSession) -> User:
+    user = User(
+        email="client@mechstrek.in",
+        hashed_password=get_password_hash("password123"),
+        full_name="Test Client",
+        role=UserRole.CLIENT,
+        is_active=True
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+@pytest.fixture(scope="function")
+async def admin_user(db_session: AsyncSession) -> User:
+    user = User(
+        email="admin@mechstrek.in",
+        hashed_password=get_password_hash("password123"),
+        full_name="Test Admin",
+        role=UserRole.ADMIN,
+        is_active=True
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+@pytest.fixture(scope="function")
+def client_headers(client_user: User) -> dict:
+    token = create_access_token(subject=client_user.id)
+    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture(scope="function")
+def admin_headers(admin_user: User) -> dict:
+    token = create_access_token(subject=admin_user.id)
+    return {"Authorization": f"Bearer {token}"}

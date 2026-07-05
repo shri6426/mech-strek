@@ -1,5 +1,5 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 import shutil
@@ -36,6 +36,7 @@ async def invite_client(
     *,
     db: AsyncSession = Depends(get_db),
     invite_in: ClientInvite,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_admin_user)
 ) -> Any:
     # Check if user already exists
@@ -72,9 +73,9 @@ async def invite_client(
 
     try:
         from app.services.email import send_invite_email
-        send_invite_email(email=user.email, name=user.full_name, magic_link=magic_link)
+        background_tasks.add_task(send_invite_email, email=user.email, name=user.full_name, magic_link=magic_link)
     except Exception as exc:
-        logger.warning("Email could not be sent: %s", exc)
+        logger.warning("Email could not be queued: %s", exc)
         logger.info("Magic Link fallback: %s", magic_link)
 
     return {
