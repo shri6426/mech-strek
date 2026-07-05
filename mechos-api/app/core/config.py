@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     RESEND_API_KEY: Optional[str] = None
     ADMIN_NOTIFICATION_EMAIL: str = "mechstrek@gmail.com"
 
+    # Stripe Settings
+    STRIPE_SECRET_KEY: Optional[str] = None
+    STRIPE_WEBHOOK_SECRET: Optional[str] = None
+
+    # Supabase Settings
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_KEY: Optional[str] = None
+    SUPABASE_BUCKET: str = "client-vault"
+
     model_config = SettingsConfigDict(case_sensitive=True, env_file=".env")
 
 settings = Settings()

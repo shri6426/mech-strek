@@ -5,6 +5,7 @@ from sqlalchemy.future import select
 from sqlalchemy import func
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.api.deps import get_current_admin_user, get_current_client_user
 from app.models.user import User
 from app.models.client_portal import Invoice
@@ -106,9 +107,8 @@ async def process_client_payment(
     # Simulate instant settlement
     invoice.status = "Paid"
     
-    # If no pdf_url is set, set a mock receipt URL
-    if not invoice.pdf_url:
-        invoice.pdf_url = f"https://receipts.mechstrek.in/receipt_{invoice.id[:8]}.pdf"
+    # Generate the actual PDF invoice URL
+    invoice.pdf_url = f"{settings.BACKEND_URL}/api/v1/invoices/client/{invoice.id}/pdf"
 
     await db.commit()
     await db.refresh(invoice)
@@ -121,3 +121,56 @@ async def process_client_payment(
         await create_and_broadcast(db, admin.id, "Payment Received", f"Client paid invoice INV-{invoice.id[:8]}", "payment", "/admin/invoices")
 
     return invoice
+
+@router.get("/client", response_model=List[InvoiceResponse])
+async def read_client_invoices(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_client_user)
+) -> Any:
+    """
+    Get all invoices for the currently logged-in client.
+    """
+    query = select(Invoice).where(Invoice.client_id == current_user.id).order_by(Invoice.created_at.desc())
+    result = await db.execute(query)
+    invoices = result.scalars().all()
+    
+    # Ensure PDF URLs are correctly formatted dynamically on read
+    for invoice in invoices:
+        invoice.pdf_url = f"{settings.BACKEND_URL}/api/v1/invoices/client/{invoice.id}/pdf"
+        
+    return invoices
+
+from fastapi.responses import StreamingResponse
+from app.services.pdf import generate_invoice_pdf
+from app.models.client_portal import ClientProject
+
+@router.get("/client/{invoice_id}/pdf")
+async def get_invoice_pdf(
+    *,
+    db: AsyncSession = Depends(get_db),
+    invoice_id: str,
+    current_user: User = Depends(get_current_client_user)
+):
+    """
+    Download a professional PDF copy of the invoice.
+    """
+    query = select(Invoice).where(Invoice.id == invoice_id, Invoice.client_id == current_user.id)
+    result = await db.execute(query)
+    invoice = result.scalars().first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+        
+    project_name = None
+    if invoice.project_id:
+        proj_query = select(ClientProject).where(ClientProject.id == invoice.project_id)
+        proj_res = await db.execute(proj_query)
+        project = proj_res.scalars().first()
+        if project:
+            project_name = project.name
+            
+    pdf_buffer = generate_invoice_pdf(invoice, current_user, project_name)
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=invoice_INV-{invoice_id[:8]}.pdf"}
+    )

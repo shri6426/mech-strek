@@ -9,6 +9,7 @@ import uuid
 from app.core.database import get_db
 from app.core.config import settings
 from app.api.deps import get_current_client_user
+from app.services.storage import upload_file_to_supabase
 from app.models.user import User
 from app.models.client_portal import ClientProject, ProjectTimeline, Invoice, ProjectMessage, ClientFile
 from app.schemas.client_portal import (
@@ -147,15 +148,13 @@ async def upload_project_file(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    os.makedirs("uploads", exist_ok=True)
     file_extension = file.filename.split(".")[-1] if "." in file.filename else "bin"
-    saved_filename = f"{uuid.uuid4().hex}_{file.filename}"
-    file_path = os.path.join("uploads", saved_filename)
     
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # Read bytes and upload to Supabase Storage
+    file_bytes = await file.read()
+    content_type = file.content_type or "application/octet-stream"
+    file_url = await upload_file_to_supabase(file_bytes, file.filename, content_type)
 
-    file_url = f"{settings.BACKEND_URL}/uploads/{saved_filename}"
     client_file = ClientFile(
         project_id=project_id,
         uploader_id=current_user.id,
