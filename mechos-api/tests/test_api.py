@@ -136,3 +136,10 @@ async def test_client_invoices_and_pdf(async_client: AsyncClient, db_session, cl
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
     assert len(response.content) > 0
+
+@pytest.mark.asyncio
+async def test_verify_session(async_client: AsyncClient, client_headers):
+    response = await async_client.get("/api/v1/payments/verify-session/mock_session_123", headers=client_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "paid"

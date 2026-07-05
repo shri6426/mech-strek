@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.api.deps import get_current_client_user
 from app.models.user import User
 from app.models.client_portal import Invoice
+from app.models.payment_event import ProcessedStripeEvent
 from app.services.webhook import dispatch_webhook_event
 
 if settings.STRIPE_SECRET_KEY:
@@ -90,7 +91,8 @@ async def create_payment_session(
             metadata={
                 "invoice_id": invoice.id,
                 "client_id": invoice.client_id
-            }
+            },
+            idempotency_key=f"checkout_inv_{invoice.id}"
         )
         return PaymentSessionResponse(
             session_id=checkout_session.id,
@@ -153,6 +155,8 @@ async def payment_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 invoice = result.scalars().first()
                 if invoice:
                     invoice.status = "Paid"
+                    # Generate the actual PDF invoice URL
+                    invoice.pdf_url = f"{settings.BACKEND_URL}/api/v1/invoices/client/{invoice.id}/pdf"
                     await db.commit()
                     await dispatch_webhook_event("payment_received", {
                         "invoice_id": invoice.id,
@@ -185,9 +189,17 @@ async def payment_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     except stripe.error.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Invalid signature")
 
+    event_id = event.get("id") if isinstance(event, dict) else event.id
     event_type = event.get("type") if isinstance(event, dict) else event.type
     event_data = event.get("data") if isinstance(event, dict) else event.data
 
+    # Event Deduplication: check if this webhook was already processed
+    exists_query = select(ProcessedStripeEvent).where(ProcessedStripeEvent.id == event_id)
+    exists_res = await db.execute(exists_query)
+    if exists_res.scalars().first():
+        return {"status": "ignored", "message": "Event already processed"}
+
+    # Settle payments on checkout.session.completed
     if event_type == "checkout.session.completed":
         session = event_data.get("object") if isinstance(event_data, dict) else event_data.object
         metadata = session.get("metadata", {}) if isinstance(session, dict) else getattr(session, "metadata", {})
@@ -198,6 +210,11 @@ async def payment_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             invoice = result.scalars().first()
             if invoice and invoice.status != "Paid":
                 invoice.status = "Paid"
+                invoice.pdf_url = f"{settings.BACKEND_URL}/api/v1/invoices/client/{invoice.id}/pdf"
+                
+                # Record event as processed (inside the transaction block)
+                processed_event = ProcessedStripeEvent(id=event_id)
+                db.add(processed_event)
                 await db.commit()
                 
                 # Broadcast notification to admin
@@ -215,4 +232,82 @@ async def payment_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 })
                 return {"status": "success", "message": "Invoice marked as paid"}
 
+    # Handle Payment Failure
+    elif event_type == "invoice.payment_failed":
+        invoice_obj = event_data.get("object") if isinstance(event_data, dict) else event_data.object
+        metadata = invoice_obj.get("metadata", {}) if isinstance(invoice_obj, dict) else getattr(invoice_obj, "metadata", {})
+        invoice_id = metadata.get("invoice_id")
+        
+        if invoice_id:
+            result = await db.execute(select(Invoice).where(Invoice.id == invoice_id))
+            invoice = result.scalars().first()
+            if invoice and invoice.status != "Overdue":
+                invoice.status = "Overdue"
+                
+                processed_event = ProcessedStripeEvent(id=event_id)
+                db.add(processed_event)
+                await db.commit()
+                return {"status": "success", "message": "Invoice payment marked as failed/overdue"}
+
+    # Handle Refunded Payments
+    elif event_type == "charge.refunded":
+        charge = event_data.get("object") if isinstance(event_data, dict) else event_data.object
+        metadata = charge.get("metadata", {}) if isinstance(charge, dict) else getattr(charge, "metadata", {})
+        invoice_id = metadata.get("invoice_id")
+        
+        if invoice_id:
+            result = await db.execute(select(Invoice).where(Invoice.id == invoice_id))
+            invoice = result.scalars().first()
+            if invoice and invoice.status != "Refunded":
+                invoice.status = "Refunded"
+                
+                processed_event = ProcessedStripeEvent(id=event_id)
+                db.add(processed_event)
+                await db.commit()
+                return {"status": "success", "message": "Invoice marked as refunded"}
+
+    # Register untracked events to avoid processing them in future runs
+    processed_event = ProcessedStripeEvent(id=event_id)
+    db.add(processed_event)
+    await db.commit()
     return {"status": "ignored"}
+
+@router.get("/verify-session/{session_id}")
+async def verify_payment_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_client_user)
+):
+    """
+    Called by the client-side success page to verify Checkout Session status server-side.
+    Avoids trusting query parameters directly from the browser.
+    """
+    if not settings.STRIPE_SECRET_KEY:
+        # Development fallback mode
+        return {"status": "paid", "message": "Simulated paid status verified"}
+        
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        invoice_id = session.metadata.get("invoice_id")
+        payment_status = session.payment_status # "paid", "unpaid", "no_payment_required"
+        
+        if invoice_id:
+            result = await db.execute(select(Invoice).where(Invoice.id == invoice_id, Invoice.client_id == current_user.id))
+            invoice = result.scalars().first()
+            if invoice:
+                if payment_status == "paid" and invoice.status != "Paid":
+                    invoice.status = "Paid"
+                    # Generate the PDF invoice url dynamically
+                    invoice.pdf_url = f"{settings.BACKEND_URL}/api/v1/invoices/client/{invoice.id}/pdf"
+                    await db.commit()
+                    
+                return {
+                    "status": invoice.status.lower(),
+                    "payment_status": payment_status,
+                    "invoice_id": invoice.id,
+                    "amount": invoice.amount
+                }
+                
+        raise HTTPException(status_code=404, detail="Invoice matching checkout session not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to verify payment session: {str(e)}")

@@ -16,6 +16,7 @@ from app.models.audit import AuditLog
 from app.models.client_portal import ClientProject, ProjectTimeline, Invoice, ClientFile, ProjectMessage
 from app.models.proposal import Proposal, ProposalScopeItem
 from app.models.project_management import ProjectTask, ProjectMilestone, ActivityFeed
+from app.models.payment_event import ProcessedStripeEvent
 
 config = context.config
 
