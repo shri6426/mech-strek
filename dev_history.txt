@@ -41,3 +41,4 @@
 [2026-07-04T23:11:09.962785] feat: implement google oauth redirect url generation
 [2026-07-04T23:51:01.962785] feat: handle google sso profile token verification callback
 [2026-07-05T00:38:18.962785] feat: implement domain-based auto-admin provisioning
+[2026-07-05T18:01:23.962785] feat: add sign-in with google button to login pages
