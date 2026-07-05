@@ -15,6 +15,29 @@ export default function ClientLoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const err = params.get('error');
+    const code = params.get('code');
+
+    // One-time auth code exchange (Google OAuth / magic link)
+    if (code) {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+      fetch(`${API_BASE}/auth/exchange?code=${code}`)
+        .then(res => {
+          if (!res.ok) throw new Error('Code exchange failed');
+          return res.json();
+        })
+        .then(data => {
+          localStorage.setItem('client_token', data.access_token);
+          // Clean URL then navigate
+          window.history.replaceState({}, document.title, window.location.pathname);
+          router.push('/portal');
+        })
+        .catch(() => {
+          setError('Sign-in link expired or already used. Please try again.');
+          window.history.replaceState({}, document.title, window.location.pathname);
+        });
+      return;
+    }
+
     if (err) {
       if (err === 'not_registered') {
         setDenied(true);
@@ -26,7 +49,7 @@ export default function ClientLoginPage() {
         setError('Authentication error occurred.');
       }
     }
-  }, []);
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

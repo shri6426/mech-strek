@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import ALGORITHM
 from app.models.user import User, UserRole
+from app.models.auth import RevokedToken
 from app.schemas.user import TokenPayload
 
 oauth2_scheme = OAuth2PasswordBearer(
@@ -27,11 +28,22 @@ async def get_current_user(
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
+        jti: str = payload.get("jti")
         if user_id is None:
             raise credentials_exception
         token_data = TokenPayload(sub=user_id)
     except (JWTError, ValidationError):
         raise credentials_exception
+
+    # Check revocation blocklist — handles forced logout / token rotation
+    if jti:
+        revoked = await db.execute(select(RevokedToken).where(RevokedToken.jti == jti))
+        if revoked.scalars().first():
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked. Please log in again.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     query = select(User).where(User.id == token_data.sub)
     result = await db.execute(query)

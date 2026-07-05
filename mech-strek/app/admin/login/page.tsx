@@ -14,15 +14,31 @@ export default function AdminLoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if token exists in query parameters (redirect from Google Callback)
     const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
+    const code = params.get('code');
     const err = params.get('error');
 
-    if (token) {
-      setAuthToken(token);
-      router.push('/admin');
-    } else if (err) {
+    // One-time auth code exchange (Google OAuth)
+    if (code) {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+      fetch(`${API_BASE}/auth/exchange?code=${code}`)
+        .then(res => {
+          if (!res.ok) throw new Error('Code exchange failed');
+          return res.json();
+        })
+        .then(data => {
+          setAuthToken(data.access_token);
+          window.history.replaceState({}, document.title, window.location.pathname);
+          router.push('/admin');
+        })
+        .catch(() => {
+          setError('Sign-in link expired or already used. Please try again.');
+          window.history.replaceState({}, document.title, window.location.pathname);
+        });
+      return;
+    }
+
+    if (err) {
       if (err === 'not_registered') {
         setDenied(true);
       } else {

@@ -11,7 +11,7 @@ async def test_health_check(async_client: AsyncClient):
 async def test_ready_check(async_client: AsyncClient):
     response = await async_client.get("/ready")
     assert response.status_code == 200
-    assert response.json() == {"status": "ready"}
+    assert response.json() == {"status": "ready", "db": "connected"}
 
 @pytest.mark.asyncio
 async def test_submit_contact_inquiry(async_client: AsyncClient):
@@ -165,7 +165,7 @@ async def test_google_callback_new_admin(async_client: AsyncClient, db_session):
         mock_auth.return_value = mock_token
         response = await async_client.get("/api/v1/auth/google/callback", follow_redirects=False)
         assert response.status_code in [302, 307]
-        assert "/admin?token=" in response.headers["location"]
+        assert "/admin/login?code=" in response.headers["location"]
 
 @pytest.mark.asyncio
 async def test_google_callback_existing_admin(async_client: AsyncClient, db_session, admin_user):
@@ -175,7 +175,7 @@ async def test_google_callback_existing_admin(async_client: AsyncClient, db_sess
         mock_auth.return_value = mock_token
         response = await async_client.get("/api/v1/auth/google/callback", follow_redirects=False)
         assert response.status_code in [302, 307]
-        assert "/admin?token=" in response.headers["location"]
+        assert "/admin/login?code=" in response.headers["location"]
 
 @pytest.mark.asyncio
 async def test_google_callback_unregistered_client(async_client: AsyncClient):

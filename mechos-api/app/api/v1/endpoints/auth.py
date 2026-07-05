@@ -2,18 +2,20 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import verify_password, create_access_token
+from app.core.security import verify_password, create_access_token, create_auth_code, ALGORITHM
 from app.models.user import User
+from app.models.auth import AuthCode, RevokedToken
 from app.schemas.user import Token, UserResponse
 from app.api.deps import get_current_user
 from app.core.rate_limit import limiter
 
 router = APIRouter()
 
+# ─── Password Login ──────────────────────────────────────────
 @router.post("/login", response_model=Token)
 @limiter.limit("5/minute")
 async def login_access_token(
@@ -44,15 +46,102 @@ async def login_access_token(
         "token_type": "bearer",
     }
 
+# ─── Current User ────────────────────────────────────────────
 @router.get("/me", response_model=UserResponse)
 async def read_user_me(
     current_user: User = Depends(get_current_user)
 ):
     return current_user
 
-from app.core.security import ALGORITHM
+# ─── Logout (token revocation) ───────────────────────────────
 from jose import jwt, JWTError
+
+@router.post("/logout")
+@limiter.limit("20/minute")
+async def logout(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Revokes the current JWT by adding its jti to the blocklist.
+    Subsequent requests with this token will receive HTTP 401.
+    """
+    from fastapi.security import OAuth2PasswordBearer
+    from fastapi import Request as FastRequest
+
+    # Extract the raw token from the Authorization header
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.removeprefix("Bearer ").strip()
+
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if jti:
+            expires_at = datetime.fromtimestamp(exp, tz=timezone.utc) if exp else \
+                         datetime.now(timezone.utc) + timedelta(days=1)
+            revoked = RevokedToken(
+                jti=jti,
+                user_id=current_user.id,
+                expires_at=expires_at
+            )
+            db.add(revoked)
+            await db.commit()
+    except JWTError:
+        pass  # Token already invalid — that's fine
+
+    return {"message": "Logged out successfully"}
+
+# ─── One-Time Auth Code Exchange ─────────────────────────────
+@router.get("/exchange")
+@limiter.limit("10/minute")
+async def exchange_auth_code(
+    request: Request,
+    code: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Exchanges a short-lived one-time auth code (issued after Google OAuth / magic-link)
+    for a real JWT access token. The code expires in 60 seconds and is single-use.
+    This avoids ever putting a JWT in a redirect URL (browser history / log leakage).
+    """
+    now = datetime.now(timezone.utc)
+
+    result = await db.execute(
+        select(AuthCode).where(AuthCode.code == code)
+    )
+    auth_code = result.scalars().first()
+
+    if not auth_code:
+        raise HTTPException(status_code=400, detail="Invalid or expired auth code")
+    if auth_code.used:
+        raise HTTPException(status_code=400, detail="Auth code has already been used")
+    if auth_code.expires_at < now:
+        raise HTTPException(status_code=400, detail="Auth code has expired")
+
+    # Mark as used immediately (single-use)
+    auth_code.used = True
+    await db.commit()
+
+    # Fetch the user
+    user_res = await db.execute(select(User).where(User.id == auth_code.user_id))
+    user = user_res.scalars().first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(subject=user.id, expires_delta=access_token_expires)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "role": user.role.value,
+    }
+
+# ─── Magic Link Login ────────────────────────────────────────
 from fastapi.responses import RedirectResponse
+from app.core.security import create_magic_token
 
 @router.get("/magic-login")
 @limiter.limit("5/minute")
@@ -81,16 +170,21 @@ async def magic_login(
     if not user or not user.is_active:
         raise credentials_exception
 
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        subject=user.id, expires_delta=access_token_expires
+    # Issue a one-time code instead of putting JWT in the URL
+    code = create_auth_code()
+    auth_code = AuthCode(
+        code=code,
+        user_id=user.id,
+        expires_at=datetime.now(timezone.utc) + timedelta(seconds=60)
     )
+    db.add(auth_code)
+    await db.commit()
 
-    redirect_url = f"{settings.FRONTEND_URL}/portal?token={access_token}"
+    redirect_url = f"{settings.FRONTEND_URL}/portal/login?code={code}"
     return RedirectResponse(url=redirect_url)
 
 
-# ─── Google OAuth Endpoints ─────────────────────────
+# ─── Google OAuth Endpoints ──────────────────────────────────
 import uuid
 from app.services.google_oauth import oauth
 from app.models.user import UserRole
@@ -152,15 +246,19 @@ async def google_callback(
     if not user.is_active:
         return RedirectResponse(url=f"{settings.FRONTEND_URL}/portal/login?error=user_inactive")
 
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        subject=user.id, expires_delta=access_token_expires
+    # Issue a one-time code — NEVER put the JWT in the redirect URL
+    code = create_auth_code()
+    auth_code = AuthCode(
+        code=code,
+        user_id=user.id,
+        expires_at=datetime.now(timezone.utc) + timedelta(seconds=60)
     )
+    db.add(auth_code)
+    await db.commit()
 
     if user.role == UserRole.ADMIN:
-        redirect_url = f"{settings.FRONTEND_URL}/admin?token={access_token}"
+        redirect_url = f"{settings.FRONTEND_URL}/admin/login?code={code}"
     else:
-        redirect_url = f"{settings.FRONTEND_URL}/portal?token={access_token}"
+        redirect_url = f"{settings.FRONTEND_URL}/portal/login?code={code}"
 
     return RedirectResponse(url=redirect_url)
-

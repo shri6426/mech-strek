@@ -40,14 +40,6 @@ export default function ClientPortalLayout({ children }: { children: React.React
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tokenParam = params.get('token');
-    if (tokenParam) {
-      localStorage.setItem('client_token', tokenParam);
-      // Clean url parameters without reloading
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
     const token = localStorage.getItem('client_token');
     if (!token && pathname !== '/portal/login') {
       router.push('/portal/login');
@@ -56,7 +48,16 @@ export default function ClientPortalLayout({ children }: { children: React.React
     }
   }, [pathname, router]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const token = localStorage.getItem('client_token');
+    if (token) {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+      // Revoke the token server-side (fire-and-forget — don't block UX)
+      fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {}); // silently ignore network errors on logout
+    }
     localStorage.removeItem('client_token');
     router.push('/portal/login');
   };

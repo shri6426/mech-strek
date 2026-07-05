@@ -14,6 +14,17 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+# ─── Sentry error monitoring (optional — only initialises if DSN is set) ─────
+import sentry_sdk
+if getattr(settings, 'SENTRY_DSN', None):
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.ENVIRONMENT,
+        traces_sample_rate=0.2,   # capture 20% of transactions for performance
+        send_default_pii=False,   # GDPR: don't send user PII by default
+    )
+    logging.getLogger("mechos-api").info("Sentry initialised for environment: %s", settings.ENVIRONMENT)
+
 logger = logging.getLogger("mechos-api")
 
 app = FastAPI(
@@ -101,10 +112,23 @@ async def root():
 async def health_check():
     return {"status": "ok"}
 
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.database import get_db
+
 @app.get("/ready")
-async def readiness_check():
-    # Extend this later to check DB connectivity
-    return {"status": "ready"}
+async def readiness_check(db: AsyncSession = Depends(get_db)):
+    """Deep health check — verifies actual database connectivity."""
+    from sqlalchemy import text
+    try:
+        await db.execute(text("SELECT 1"))
+        return {"status": "ready", "db": "connected"}
+    except Exception as e:
+        logger.error("Readiness check failed: %s", e)
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unavailable", "db": "unreachable", "detail": str(e)}
+        )
 
 @app.get("/version")
 async def version_info():

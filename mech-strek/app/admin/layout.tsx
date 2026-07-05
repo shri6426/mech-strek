@@ -53,7 +53,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return <>{children}</>;
   }
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    const token = getAuthToken();
+    if (token) {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+      fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
     removeAuthToken();
     router.push('/admin/login');
   };
