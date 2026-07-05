@@ -1,4 +1,9 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+export const getWsUrl = (path: string): string => {
+  const wsBase = API_BASE_URL.replace(/^http/, 'ws');
+  return `${wsBase}${path.startsWith('/') ? path : `/${path}`}`;
+};
 
 export const getAuthToken = (): string | null => {
   if (typeof window !== 'undefined') {

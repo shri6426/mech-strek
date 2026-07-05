@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Send, MessagesSquare, Loader2 } from 'lucide-react';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { getWsUrl } from '@/lib/api';
 
 interface Project {
   id: string;
@@ -31,7 +32,7 @@ export default function ClientMessages() {
 
   const WS_URL =
     activeProjectId && getToken()
-      ? `ws://localhost:8000/api/v1/ws/chat/${activeProjectId}?token=${getToken()}`
+      ? getWsUrl(`/ws/chat/${activeProjectId}?token=${getToken()}`)
       : null;
 
   const { messages: wsMessages, sendMessage: sendWsMessage } = useWebSocket(WS_URL);

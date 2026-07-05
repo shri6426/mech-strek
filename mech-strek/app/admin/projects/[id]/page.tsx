@@ -15,7 +15,8 @@ import {
   AdminTimelineMilestone,
   AdminProjectFile,
   AdminProjectMessage,
-  AdminProjectActivity
+  AdminProjectActivity,
+  getWsUrl
 } from '@/lib/api';
 import { 
   Layers, 
@@ -58,7 +59,7 @@ export default function ProjectWorkspace({ params }: { params: { id: string } })
   const messageEndRef = useRef<HTMLDivElement>(null);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
-  const WS_URL = token ? `ws://localhost:8000/api/v1/ws/chat/${projectId}?token=${token}` : null;
+  const WS_URL = token ? getWsUrl(`/ws/chat/${projectId}?token=${token}`) : null;
   const { messages: wsMessages, sendMessage: sendWsMessage } = useWebSocket(WS_URL);
 
   useEffect(() => {

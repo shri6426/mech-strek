@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { getAuthToken } from '@/lib/api';
+import { getAuthToken, getWsUrl } from '@/lib/api';
 
 export interface Notification {
   id: string;
@@ -59,7 +59,7 @@ export function useNotifications(role: 'admin' | 'client') {
     const userId = payload?.sub;
     if (!userId) return;
 
-    const wsUrl = `ws://localhost:8000/api/v1/ws/notifications/${userId}?token=${token}`;
+    const wsUrl = getWsUrl(`/ws/notifications/${userId}?token=${token}`);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

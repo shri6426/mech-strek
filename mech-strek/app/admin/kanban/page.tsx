@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, getWsUrl } from '@/lib/api';
 import { Plus, CheckCircle2, Circle, Clock, AlertTriangle, X, Send } from 'lucide-react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
@@ -43,7 +43,7 @@ export default function AdminKanbanPage() {
   const [projectId, setProjectId] = useState('');
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
-  const WS_URL = token ? `ws://localhost:8000/api/v1/ws/kanban?token=${token}` : null;
+  const WS_URL = token ? getWsUrl(`/ws/kanban?token=${token}`) : null;
   const { messages: wsMessages, sendMessage: sendWsMessage } = useWebSocket(WS_URL);
 
   useEffect(() => {
