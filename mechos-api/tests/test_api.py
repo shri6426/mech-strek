@@ -143,3 +143,43 @@ async def test_verify_session(async_client: AsyncClient, client_headers):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "paid"
+
+from unittest.mock import AsyncMock, patch
+from fastapi.responses import RedirectResponse
+
+@pytest.mark.asyncio
+async def test_google_login_redirect(async_client: AsyncClient):
+    with patch("app.services.google_oauth.oauth.google.authorize_redirect", return_value=RedirectResponse("https://accounts.google.com/o/oauth2/v2/auth")):
+        response = await async_client.get("/api/v1/auth/google/login", follow_redirects=False)
+        assert response.status_code in [302, 307]
+        assert "accounts.google.com" in response.headers["location"]
+
+@pytest.mark.asyncio
+async def test_google_callback_new_admin(async_client: AsyncClient, db_session):
+    mock_token = {"userinfo": {"email": "new_admin@mechstrek.in", "name": "New Admin"}}
+    
+    with patch("app.services.google_oauth.oauth.google.authorize_access_token", new_callable=AsyncMock) as mock_auth:
+        mock_auth.return_value = mock_token
+        response = await async_client.get("/api/v1/auth/google/callback", follow_redirects=False)
+        assert response.status_code in [302, 307]
+        assert "/admin?token=" in response.headers["location"]
+
+@pytest.mark.asyncio
+async def test_google_callback_existing_admin(async_client: AsyncClient, db_session, admin_user):
+    mock_token = {"userinfo": {"email": admin_user.email, "name": admin_user.full_name}}
+    
+    with patch("app.services.google_oauth.oauth.google.authorize_access_token", new_callable=AsyncMock) as mock_auth:
+        mock_auth.return_value = mock_token
+        response = await async_client.get("/api/v1/auth/google/callback", follow_redirects=False)
+        assert response.status_code in [302, 307]
+        assert "/admin?token=" in response.headers["location"]
+
+@pytest.mark.asyncio
+async def test_google_callback_unregistered_client(async_client: AsyncClient):
+    mock_token = {"userinfo": {"email": "unregistered@gmail.com", "name": "Unregistered Client"}}
+    
+    with patch("app.services.google_oauth.oauth.google.authorize_access_token", new_callable=AsyncMock) as mock_auth:
+        mock_auth.return_value = mock_token
+        response = await async_client.get("/api/v1/auth/google/callback", follow_redirects=False)
+        assert response.status_code in [302, 307]
+        assert "error=not_registered" in response.headers["location"]
