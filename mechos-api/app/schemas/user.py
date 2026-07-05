@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
 from app.models.user import UserRole
@@ -16,8 +16,6 @@ class UserBase(BaseModel):
     role: UserRole = UserRole.ADMIN
     is_active: bool = True
 
-from pydantic import BaseModel, EmailStr, Field
-
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8, description="Password must be at least 8 characters long")
 
@@ -25,5 +23,4 @@ class UserResponse(UserBase):
     id: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

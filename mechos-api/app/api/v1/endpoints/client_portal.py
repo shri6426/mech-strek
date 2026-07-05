@@ -7,6 +7,7 @@ import os
 import uuid
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.api.deps import get_current_client_user
 from app.models.user import User
 from app.models.client_portal import ClientProject, ProjectTimeline, Invoice, ProjectMessage, ClientFile
@@ -154,7 +155,7 @@ async def upload_project_file(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    file_url = f"http://localhost:8000/uploads/{saved_filename}"
+    file_url = f"{settings.BACKEND_URL}/uploads/{saved_filename}"
     client_file = ClientFile(
         project_id=project_id,
         uploader_id=current_user.id,

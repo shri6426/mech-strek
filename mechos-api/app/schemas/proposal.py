@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -15,8 +15,7 @@ class ProposalScopeItemResponse(ProposalScopeItemBase):
     id: str
     proposal_id: str
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ProposalBase(BaseModel):
     title: str
@@ -42,5 +41,4 @@ class ProposalResponse(ProposalBase):
     updated_at: datetime
     scope_items: List[ProposalScopeItemResponse] = []
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

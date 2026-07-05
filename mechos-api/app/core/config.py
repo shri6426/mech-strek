@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import PostgresDsn, field_validator
 from typing import Optional, Any
 
@@ -41,8 +41,6 @@ class Settings(BaseSettings):
     RESEND_API_KEY: Optional[str] = None
     ADMIN_NOTIFICATION_EMAIL: str = "mechstrek@gmail.com"
 
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
+    model_config = SettingsConfigDict(case_sensitive=True, env_file=".env")
 
 settings = Settings()

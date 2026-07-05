@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -28,8 +28,7 @@ class ClientProjectResponse(ClientProjectBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Project Timeline ---
 class ProjectTimelineBase(BaseModel):
@@ -53,8 +52,7 @@ class ProjectTimelineResponse(ProjectTimelineBase):
     id: str
     project_id: str
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Invoice ---
 class InvoiceBase(BaseModel):
@@ -74,8 +72,7 @@ class InvoiceResponse(InvoiceBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Client File ---
 class ClientFileBase(BaseModel):
@@ -92,8 +89,7 @@ class ClientFileResponse(ClientFileBase):
     uploader_id: str
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Project Message ---
 class ProjectMessageBase(BaseModel):
@@ -108,6 +104,5 @@ class ProjectMessageResponse(ProjectMessageBase):
     sender_id: str
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
