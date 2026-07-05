@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
-import { IndianRupee, FileText, CheckCircle, Clock, AlertCircle, Download, Loader2 } from 'lucide-react';
+import { IndianRupee, FileText, CheckCircle, Clock, AlertCircle, Download, Loader2, ArrowRight, X } from 'lucide-react';
 
 interface Invoice {
   id: string;
@@ -12,6 +12,9 @@ interface Invoice {
   pdf_url?: string;
   created_at: string;
   description?: string;
+  utr?: string;
+  screenshot_url?: string;
+  payment_method?: string;
 }
 
 function SkeletonBlock({ className }: { className?: string }) {
@@ -22,6 +25,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; b
   Paid:    { label: 'Paid',    color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20',  icon: CheckCircle },
   Overdue: { label: 'Overdue', color: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/20',    icon: AlertCircle },
   Pending: { label: 'Pending', color: 'text-amber-400',  bg: 'bg-amber-500/10',  border: 'border-amber-500/20',  icon: Clock },
+  'Under Review': { label: 'Under Review', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', icon: Clock },
 };
 
 export default function ClientInvoicesPage() {
@@ -29,6 +33,13 @@ export default function ClientInvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [payingId, setPayingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  
+  // Payment Modal States
+  const [activePayingInvoice, setActivePayingInvoice] = useState<Invoice | null>(null);
+  const [paymentMode, setPaymentMode] = useState<'online' | 'manual' | null>(null);
+  const [utr, setUtr] = useState('');
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [submittingManual, setSubmittingManual] = useState(false);
 
   useEffect(() => {
     apiFetch<Invoice[]>('/invoices/client')
@@ -189,18 +200,18 @@ export default function ClientInvoicesPage() {
                         <Download size={12} /> Receipt
                       </a>
                     )}
-                    {!isPaid && (
+                    {!isPaid && inv.status !== 'Under Review' && (
                       <button
-                        onClick={() => handlePay(inv.id)}
-                        disabled={isPaying}
-                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-white text-black hover:bg-neutral-100 transition-colors disabled:opacity-60"
+                        onClick={() => setActivePayingInvoice(inv)}
+                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-white text-black hover:bg-neutral-100 transition-colors"
                       >
-                        {isPaying ? (
-                          <><Loader2 size={12} className="animate-spin" /> Processing...</>
-                        ) : (
-                          'Pay Now'
-                        )}
+                        Pay Now
                       </button>
+                    )}
+                    {inv.status === 'Under Review' && (
+                      <span className="text-xs font-medium text-neutral-500 bg-neutral-900 border border-white/5 px-3 py-1 rounded-lg">
+                        Under Review
+                      </span>
                     )}
                   </div>
                 )}
@@ -216,6 +227,119 @@ export default function ClientInvoicesPage() {
           })
         )}
       </div>
+
+      {/* Choice Payment Modal */}
+      {activePayingInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+          <div className="bg-[#111] border border-white/10 rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl relative">
+            <button
+              onClick={() => {
+                setActivePayingInvoice(null);
+                setPaymentMode(null);
+                setUtr('');
+                setScreenshotFile(null);
+              }}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-white"
+            >
+              <X size={16} />
+            </button>
+
+            <div>
+              <span className="text-[9px] font-mono text-neutral-500 uppercase tracking-widest">Complete Your Payment</span>
+              <h2 className="text-lg font-bold text-white mt-1">Invoice #{activePayingInvoice.id.substring(0, 8).toUpperCase()}</h2>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!utr) return;
+                setSubmittingManual(true);
+                try {
+                  const token = localStorage.getItem('client_token');
+                  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+                  const formData = new FormData();
+                  formData.append('utr', utr);
+                  if (screenshotFile) {
+                    formData.append('screenshot', screenshotFile);
+                  }
+                  const res = await fetch(`${API_BASE}/invoices/client/${activePayingInvoice.id}/submit-manual-payment`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                  });
+                  if (res.ok) {
+                    const updated = await res.json();
+                    setInvoices((prev) => prev.map((i) => (i.id === activePayingInvoice.id ? updated : i)));
+                    showToast('Manual payment submitted for review!', 'success');
+                    setActivePayingInvoice(null);
+                    setUtr('');
+                    setScreenshotFile(null);
+                  } else {
+                    const data = await res.json();
+                    showToast(data.detail || 'Failed to submit payment.', 'error');
+                  }
+                } catch {
+                  showToast('Submission error occurred.', 'error');
+                } finally {
+                  setSubmittingManual(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              <div className="p-4 rounded-2xl bg-[#0d0d0d] border border-white/5 space-y-4 text-center">
+                <div className="text-xs font-semibold text-neutral-400">Scan QR to Transfer</div>
+                
+                {/* Premium mock QR code SVG */}
+                <svg className="w-36 h-36 mx-auto p-2.5 bg-white rounded-xl" viewBox="0 0 29 29" shapeRendering="crispEdges">
+                  <path fill="#ffffff" d="M0,0 h29 v29 h-29 z" />
+                  <path fill="#000000" d="M0,0 h7 v7 h-7 z M22,0 h7 v7 h-7 z M0,22 h7 v7 h-7 z M9,9 h2 v2 h-2 z M15,15 h2 v2 h-2 z M9,15 h2 v2 h-2 z M12,12 h5 v5 h-5 z M3,3 h1 v1 h-1 z M25,3 h1 v1 h-1 z M3,25 h1 v1 h-1 z" />
+                </svg>
+                
+                <div className="space-y-1 text-left bg-white/5 p-3 rounded-lg text-[11px] font-mono">
+                  <div className="text-neutral-500">UPI ID: <span className="text-white select-all">payments@mechstrek</span></div>
+                  <div className="text-neutral-500">Amount: <span className="text-white">₹{activePayingInvoice.amount.toLocaleString()}</span></div>
+                  <div className="text-neutral-500">Reference: <span className="text-white select-all">INV-{activePayingInvoice.id.substring(0,8).toUpperCase()}</span></div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] uppercase font-mono tracking-wider text-neutral-500 mb-1">Transaction ID (UTR)</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter 12-digit UTR/Ref ID"
+                    value={utr}
+                    onChange={(e) => setUtr(e.target.value)}
+                    className="w-full bg-[#181818] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-white transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-mono tracking-wider text-neutral-500 mb-1">Screenshot (Optional)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setScreenshotFile(e.target.files ? e.target.files[0] : null)}
+                    className="w-full text-xs text-neutral-500 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={submittingManual}
+                  className="w-full bg-white text-black font-bold py-2.5 rounded-xl text-xs hover:bg-neutral-200 disabled:opacity-60 flex items-center justify-center gap-1.5"
+                >
+                  {submittingManual ? <Loader2 size={12} className="animate-spin" /> : 'Submit Payment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

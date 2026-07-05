@@ -12,6 +12,9 @@ interface Invoice {
   status: string;
   due_date: string;
   pdf_url?: string;
+  utr?: string;
+  screenshot_url?: string;
+  payment_method?: string;
 }
 
 interface Summary {
@@ -25,6 +28,7 @@ export default function AdminInvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
+  const awaitingReview = invoices.filter((i) => i.status === 'Under Review');
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -56,6 +60,20 @@ export default function AdminInvoicesPage() {
     };
     fetchData();
   }, []);
+
+  const handleVerifyPayment = async (id: string, approve: boolean, rejectionReason?: string) => {
+    try {
+      const res = await apiFetch<Invoice>(`/invoices/admin/${id}/verify-payment`, {
+        method: 'POST',
+        body: JSON.stringify({ approve, rejection_reason: rejectionReason })
+      });
+      setInvoices(invoices.map(i => i.id === id ? res : i));
+      const sumData = await apiFetch<Summary>('/invoices/admin/summary');
+      setSummary(sumData);
+    } catch (err) {
+      console.error("Failed to verify manual payment", err);
+    }
+  };
 
   const handleMarkPaid = async (id: string) => {
     try {
@@ -167,6 +185,65 @@ export default function AdminInvoicesPage() {
         </div>
       </div>
 
+      {/* Awaiting Review Panel */}
+      {awaitingReview.length > 0 && (
+        <div className="bg-[#111] border border-blue-500/20 rounded-2xl p-5 space-y-4 shadow-2xl">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Payments Awaiting Verification</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-3">
+            {awaitingReview.map((inv) => (
+              <div key={inv.id} className="bg-[#181818] border border-white/5 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">INV-{inv.id.substring(0, 8).toUpperCase()}</span>
+                    <span className="text-xs text-neutral-500">Client: {inv.client_id.substring(0, 8)}...</span>
+                  </div>
+                  <div className="text-xs text-neutral-400">
+                    Amount: <span className="text-white font-semibold">₹{inv.amount.toLocaleString()}</span> | 
+                    UTR: <span className="font-mono text-blue-400 select-all bg-blue-500/10 px-2 py-0.5 rounded ml-1">{inv.utr}</span>
+                  </div>
+                  {inv.screenshot_url && (
+                    <div className="pt-1">
+                      <a
+                        href={inv.screenshot_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-neutral-400 hover:text-white underline inline-flex items-center gap-1"
+                      >
+                        Open Payment Screenshot
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleVerifyPayment(inv.id, true)}
+                    className="bg-green-500 hover:bg-green-400 text-black px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => {
+                      const reason = prompt("Enter reason for rejection:", "Transaction reference could not be verified.");
+                      if (reason !== null) {
+                        handleVerifyPayment(inv.id, false, reason);
+                      }
+                    }}
+                    className="bg-red-500/15 border border-red-500/30 hover:bg-red-500/30 text-red-400 px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Invoice Table */}
       <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden">
         <table className="w-full text-left border-collapse">
@@ -198,13 +275,14 @@ export default function AdminInvoicesPage() {
                     <span className={`px-2 py-1 rounded text-xs font-medium border ${
                       inv.status === 'Paid' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
                       inv.status === 'Overdue' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                      inv.status === 'Under Review' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
                       'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
                     }`}>
                       {inv.status}
                     </span>
                   </td>
                   <td className="p-4 text-right">
-                    {inv.status !== 'Paid' && (
+                    {inv.status !== 'Paid' && inv.status !== 'Under Review' && (
                       <button 
                         onClick={() => handleMarkPaid(inv.id)}
                         className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"

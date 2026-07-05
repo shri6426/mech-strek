@@ -60,6 +60,9 @@ class InvoiceBase(BaseModel):
     status: Optional[str] = "Pending"
     due_date: datetime
     pdf_url: Optional[str] = None
+    utr: Optional[str] = None
+    screenshot_url: Optional[str] = None
+    payment_method: Optional[str] = "STRIPE"
 
 class InvoiceCreate(InvoiceBase):
     client_id: str

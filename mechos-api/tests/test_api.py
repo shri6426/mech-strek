@@ -183,3 +183,45 @@ async def test_google_callback_unregistered_client(async_client: AsyncClient):
         response = await async_client.get("/api/v1/auth/google/callback", follow_redirects=False)
         assert response.status_code in [302, 307]
         assert "error=not_registered" in response.headers["location"]
+
+@pytest.mark.asyncio
+async def test_manual_payment_flow(async_client: AsyncClient, db_session, client_user, client_headers, admin_headers):
+    from app.models.client_portal import Invoice
+    from app.models.user import User
+    from datetime import datetime, timedelta
+    from sqlalchemy.future import select
+    
+    res = await db_session.execute(select(User).where(User.email == "client@mechstrek.in"))
+    client = res.scalars().first()
+    
+    invoice = Invoice(
+        client_id=client.id,
+        amount=5000.0,
+        status="Pending",
+        due_date=datetime.now() + timedelta(days=30)
+    )
+    db_session.add(invoice)
+    await db_session.commit()
+    await db_session.refresh(invoice)
+    
+    # 1. Submit manual payment
+    response = await async_client.post(
+        f"/api/v1/invoices/client/{invoice.id}/submit-manual-payment",
+        data={"utr": "UTR123456789"},
+        headers=client_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "Under Review"
+    assert data["utr"] == "UTR123456789"
+    assert data["payment_method"] == "MANUAL_UPI"
+    
+    # 2. Admin verifies and approves payment
+    response = await async_client.post(
+        f"/api/v1/invoices/admin/{invoice.id}/verify-payment",
+        json={"approve": True},
+        headers=admin_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "Paid"

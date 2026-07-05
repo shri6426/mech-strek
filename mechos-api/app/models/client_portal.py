@@ -48,6 +48,9 @@ class Invoice(Base):
     status = Column(String, default="Pending", nullable=False) # "Pending", "Paid", "Overdue"
     due_date = Column(DateTime(timezone=True), nullable=False)
     pdf_url = Column(String, nullable=True)
+    utr = Column(String, nullable=True)
+    screenshot_url = Column(String, nullable=True)
+    payment_method = Column(String, default="STRIPE", nullable=True) # "STRIPE" or "MANUAL_UPI"
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

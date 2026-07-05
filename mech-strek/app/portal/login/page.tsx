@@ -9,6 +9,7 @@ export default function ClientLoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [denied, setDenied] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -16,7 +17,7 @@ export default function ClientLoginPage() {
     const err = params.get('error');
     if (err) {
       if (err === 'not_registered') {
-        setError('Your Google Account is not associated with an invited client portal workspace. Please request an invite from MechStrek Admins.');
+        setDenied(true);
       } else if (err === 'google_auth_failed') {
         setError('Google Sign-In failed.');
       } else if (err === 'user_inactive') {
@@ -60,6 +61,44 @@ export default function ClientLoginPage() {
       setLoading(false);
     }
   };
+
+  if (denied) {
+    return (
+      <div className="min-h-screen bg-[#080808] text-white flex items-center justify-center px-4 relative overflow-hidden">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-red-500/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="max-w-md w-full p-8 rounded-2xl bg-[#111]/80 backdrop-blur-xl border border-red-500/20 shadow-2xl relative z-10 text-center">
+          <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4 mx-auto">
+            <Lock className="w-5 h-5 text-red-400" />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight text-red-400">Access Not Yet Available</h1>
+          <p className="text-sm text-neutral-300 mt-4 leading-relaxed">
+            Your Google account is not associated with an invited client portal workspace.
+          </p>
+          <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+            If your company already uses MechOS, please ask your administrator to invite this email address.
+          </p>
+          <div className="mt-8 space-y-3">
+            <button
+              onClick={() => {
+                setDenied(false);
+                setError(null);
+                router.replace('/portal/login');
+              }}
+              className="w-full bg-white text-black hover:bg-neutral-200 font-semibold py-2.5 rounded-xl text-sm transition-all"
+            >
+              Back to Login
+            </button>
+            <a
+              href="mailto:support@mechstrek.in"
+              className="block w-full bg-[#181818] border border-white/10 hover:bg-[#222] text-white font-semibold py-2.5 rounded-xl text-sm transition-all"
+            >
+              Contact Sales / Support
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#080808] text-white flex items-center justify-center px-4 relative overflow-hidden">

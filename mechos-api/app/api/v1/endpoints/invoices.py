@@ -1,8 +1,10 @@
-from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Any, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Form, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
+from app.services.storage import upload_file_to_supabase
+from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -174,3 +176,124 @@ async def get_invoice_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=invoice_INV-{invoice_id[:8]}.pdf"}
     )
+
+class VerifyPaymentRequest(BaseModel):
+    approve: bool
+    rejection_reason: Optional[str] = None
+
+@router.post("/client/{invoice_id}/submit-manual-payment", response_model=InvoiceResponse)
+async def submit_manual_payment(
+    *,
+    db: AsyncSession = Depends(get_db),
+    invoice_id: str,
+    utr: str = Form(...),
+    screenshot: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_client_user)
+) -> Any:
+    """
+    Submits a manual bank or UPI transfer with UTR and optional screenshot for review.
+    """
+    query = select(Invoice).where(Invoice.id == invoice_id, Invoice.client_id == current_user.id)
+    result = await db.execute(query)
+    invoice = result.scalars().first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+        
+    if invoice.status == "Paid":
+        raise HTTPException(status_code=400, detail="Invoice is already paid")
+        
+    screenshot_url = None
+    if screenshot:
+        # Validate extension
+        ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
+        ext = screenshot.filename.split(".")[-1].lower() if "." in screenshot.filename else "bin"
+        if ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(status_code=400, detail=f"File extension '.{ext}' is not allowed for screenshots.")
+            
+        file_bytes = await screenshot.read()
+        screenshot_url = await upload_file_to_supabase(file_bytes, screenshot.filename, screenshot.content_type)
+
+    invoice.utr = utr
+    if screenshot_url:
+        invoice.screenshot_url = screenshot_url
+    invoice.payment_method = "MANUAL_UPI"
+    invoice.status = "Under Review"
+    
+    await db.commit()
+    await db.refresh(invoice)
+    
+    # Broadcast to admin
+    from app.services.notifications import create_and_broadcast
+    from app.models.user import UserRole
+    admin_query = select(User).where(User.role == UserRole.ADMIN)
+    admin_res = await db.execute(admin_query)
+    for admin in admin_res.scalars().all():
+        await create_and_broadcast(
+            db, 
+            admin.id, 
+            "Manual Payment Submitted", 
+            f"Client submitted manual payment for invoice INV-{invoice.id[:8]} (UTR: {utr})", 
+            "payment", 
+            "/admin/invoices"
+        )
+        
+    return invoice
+
+
+
+@router.post("/admin/{invoice_id}/verify-payment", response_model=InvoiceResponse)
+async def verify_payment(
+    *,
+    db: AsyncSession = Depends(get_db),
+    invoice_id: str,
+    body: VerifyPaymentRequest,
+    current_user: User = Depends(get_current_admin_user)
+) -> Any:
+    """
+    Approves or rejects a client's manual UPI / bank transfer UTR submission.
+    """
+    query = select(Invoice).where(Invoice.id == invoice_id)
+    result = await db.execute(query)
+    invoice = result.scalars().first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+        
+    if invoice.status == "Paid":
+        raise HTTPException(status_code=400, detail="Invoice is already paid")
+        
+    from app.services.notifications import create_and_broadcast
+    
+    if body.approve:
+        invoice.status = "Paid"
+        invoice.pdf_url = f"{settings.BACKEND_URL}/api/v1/invoices/client/{invoice.id}/pdf"
+        await db.commit()
+        await db.refresh(invoice)
+        
+        # Settle notifications to client
+        await create_and_broadcast(
+            db,
+            invoice.client_id,
+            "Payment Approved",
+            f"Your manual payment for invoice INV-{invoice.id[:8]} has been approved and marked as Paid.",
+            "payment",
+            "/portal/invoices"
+        )
+    else:
+        # Rejected
+        invoice.status = "Pending"
+        invoice.utr = None
+        invoice.screenshot_url = None
+        await db.commit()
+        await db.refresh(invoice)
+        
+        reason = body.rejection_reason or "Verification of transaction reference failed."
+        await create_and_broadcast(
+            db,
+            invoice.client_id,
+            "Payment Rejected",
+            f"Your manual payment for invoice INV-{invoice.id[:8]} was rejected. Reason: {reason}",
+            "payment",
+            "/portal/invoices"
+        )
+        
+    return invoice
