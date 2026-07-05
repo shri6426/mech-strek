@@ -1,6 +1,5 @@
-import type { NextConfig } from 'next';
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   // Disable ESLint blocking builds (errors go to stdout, not build failure)
   eslint: {
     ignoreDuringBuilds: true,
