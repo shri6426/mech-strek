@@ -156,7 +156,10 @@ async def test_google_login_redirect(async_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_google_callback_new_admin(async_client: AsyncClient, db_session):
-    mock_token = {"userinfo": {"email": "new_admin@mechstrek.in", "name": "New Admin"}}
+    # SECURITY NOTE: Only emails in ADMIN_ALLOWED_EMAILS or INITIAL_ADMIN_EMAIL can be auto-promoted.
+    # Using the seeded INITIAL_ADMIN_EMAIL ensures the allowlist check passes.
+    from app.core.config import settings as app_settings
+    mock_token = {"userinfo": {"email": app_settings.INITIAL_ADMIN_EMAIL, "name": "Initial Admin"}}
     
     with patch("app.services.google_oauth.oauth.google.authorize_access_token", new_callable=AsyncMock) as mock_auth:
         mock_auth.return_value = mock_token

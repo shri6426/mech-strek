@@ -73,6 +73,22 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
+@app.on_event("startup")
+async def enforce_security_config():
+    """Block startup in production if insecure default settings are detected."""
+    if settings.ENVIRONMENT == "production":
+        if settings.SECRET_KEY == "temporary_secret_key_for_development":
+            raise RuntimeError(
+                "SECURITY ERROR: SECRET_KEY is set to the default development value. "
+                "Set a strong random SECRET_KEY in your .env before deploying to production."
+            )
+        if not settings.STRIPE_WEBHOOK_SECRET:
+            import logging
+            logging.getLogger("mechos-api").warning(
+                "WARNING: STRIPE_WEBHOOK_SECRET is not set in production. "
+                "Stripe webhooks will be accepted without signature verification."
+            )
+
 @app.get("/")
 async def root():
     return {

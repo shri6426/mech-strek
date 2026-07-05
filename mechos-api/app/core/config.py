@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     RESEND_API_KEY: Optional[str] = None
     ADMIN_NOTIFICATION_EMAIL: str = "mechstrek@gmail.com"
 
+    # Admin email allowlist for Google OAuth auto-provisioning (comma-separated)
+    # Example: "admin@mechstrek.in,cto@mechstrek.in"
+    ADMIN_ALLOWED_EMAILS: str = ""  # Set in .env
+
+    # Simulation webhook secret (dev only, must be set in .env)
+    SIMULATION_WEBHOOK_KEY: str = "dev-sim-key-change-me"
+
     # Stripe Settings
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None

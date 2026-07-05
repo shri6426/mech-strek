@@ -1,17 +1,28 @@
-from typing import Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Form, File, UploadFile
+from typing import Any, List, Optional, Literal
+from fastapi import APIRouter, Depends, HTTPException, status, Form, File, UploadFile, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
 from app.services.storage import upload_file_to_supabase
 from pydantic import BaseModel
+import re
 
 from app.core.database import get_db
 from app.core.config import settings
 from app.api.deps import get_current_admin_user, get_current_client_user
+from app.core.rate_limit import limiter
 from app.models.user import User
 from app.models.client_portal import Invoice
 from app.schemas.client_portal import InvoiceResponse
+
+# Valid invoice statuses — enforced on all status mutations
+VALID_STATUSES = {"Pending", "Paid", "Overdue", "Refunded", "Under Review", "Cancelled"}
+
+# UTR: 12–22 alphanumeric characters (standard Indian payment reference format)
+UTR_PATTERN = re.compile(r'^[0-9A-Za-z]{12,22}$')
+
+# Max screenshot size: 5 MB
+MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024
 
 router = APIRouter()
 
@@ -67,12 +78,15 @@ async def get_financial_summary(
         "total_invoices_count": len(invoices)
     }
 
+class InvoiceStatusUpdate(BaseModel):
+    status: Literal["Pending", "Paid", "Overdue", "Refunded", "Under Review", "Cancelled"]
+
 @router.patch("/admin/{invoice_id}/status", response_model=InvoiceResponse)
 async def update_invoice_status(
     *,
     db: AsyncSession = Depends(get_db),
     invoice_id: str,
-    status_update: dict,
+    status_update: InvoiceStatusUpdate,
     current_user: User = Depends(get_current_admin_user)
 ) -> Any:
     query = select(Invoice).where(Invoice.id == invoice_id)
@@ -81,15 +95,13 @@ async def update_invoice_status(
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    new_status = status_update.get("status")
-    if new_status:
-        invoice.status = new_status
+    invoice.status = status_update.status
 
     await db.commit()
     await db.refresh(invoice)
     return invoice
 
-# --- Client Checkout Simulation ---
+# --- Client Checkout Simulation (DEVELOPMENT ONLY) ---
 @router.post("/client/{invoice_id}/pay", response_model=InvoiceResponse)
 async def process_client_payment(
     *,
@@ -97,6 +109,13 @@ async def process_client_payment(
     invoice_id: str,
     current_user: User = Depends(get_current_client_user)
 ) -> Any:
+    # Guard: This simulation endpoint must never run in production
+    if settings.ENVIRONMENT == "production":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Direct payment simulation is disabled in production. Use the UPI manual payment or Stripe flow."
+        )
+
     query = select(Invoice).where(Invoice.id == invoice_id, Invoice.client_id == current_user.id)
     result = await db.execute(query)
     invoice = result.scalars().first()
@@ -106,10 +125,8 @@ async def process_client_payment(
     if invoice.status == "Paid":
         raise HTTPException(status_code=400, detail="Invoice is already paid")
 
-    # Simulate instant settlement
+    # Simulate instant settlement (dev only)
     invoice.status = "Paid"
-    
-    # Generate the actual PDF invoice URL
     invoice.pdf_url = f"{settings.BACKEND_URL}/api/v1/invoices/client/{invoice.id}/pdf"
 
     await db.commit()
@@ -182,8 +199,10 @@ class VerifyPaymentRequest(BaseModel):
     rejection_reason: Optional[str] = None
 
 @router.post("/client/{invoice_id}/submit-manual-payment", response_model=InvoiceResponse)
+@limiter.limit("5/minute")
 async def submit_manual_payment(
     *,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     invoice_id: str,
     utr: str = Form(...),
@@ -198,10 +217,24 @@ async def submit_manual_payment(
     invoice = result.scalars().first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
-        
+
     if invoice.status == "Paid":
         raise HTTPException(status_code=400, detail="Invoice is already paid")
-        
+
+    if invoice.status == "Under Review":
+        raise HTTPException(status_code=400, detail="A payment submission is already under review for this invoice.")
+
+    # Validate UTR format (12-22 alphanumeric characters)
+    utr = utr.strip().upper()
+    if not UTR_PATTERN.match(utr):
+        raise HTTPException(status_code=400, detail="Invalid UTR format. Must be 12–22 alphanumeric characters.")
+
+    # Ensure UTR is unique — prevent double-spend across different invoices
+    utr_exists_query = select(Invoice).where(Invoice.utr == utr, Invoice.id != invoice_id)
+    utr_exists_res = await db.execute(utr_exists_query)
+    if utr_exists_res.scalars().first():
+        raise HTTPException(status_code=400, detail="This UTR reference has already been submitted for another invoice.")
+
     screenshot_url = None
     if screenshot:
         # Validate extension
@@ -209,8 +242,12 @@ async def submit_manual_payment(
         ext = screenshot.filename.split(".")[-1].lower() if "." in screenshot.filename else "bin"
         if ext not in ALLOWED_EXTENSIONS:
             raise HTTPException(status_code=400, detail=f"File extension '.{ext}' is not allowed for screenshots.")
-            
-        file_bytes = await screenshot.read()
+
+        # Enforce 5 MB file size limit to prevent memory exhaustion
+        file_bytes = await screenshot.read(MAX_SCREENSHOT_BYTES + 1)
+        if len(file_bytes) > MAX_SCREENSHOT_BYTES:
+            raise HTTPException(status_code=413, detail="Screenshot exceeds the 5 MB size limit.")
+
         screenshot_url = await upload_file_to_supabase(file_bytes, screenshot.filename, screenshot.content_type)
 
     invoice.utr = utr

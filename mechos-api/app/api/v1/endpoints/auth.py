@@ -124,8 +124,17 @@ async def google_callback(
     user = result.scalars().first()
 
     if not user:
-        # Auto-create ADMIN role for official mechstrek.in email addresses
-        if email.endswith("@mechstrek.in"):
+        # Resolve authorized admin emails from environment config
+        allowed_admin_emails = [
+            e.strip().lower()
+            for e in getattr(settings, 'ADMIN_ALLOWED_EMAILS', '').split(',')
+            if e.strip()
+        ]
+        # Fallback: the seeded initial admin email is always authorized
+        if settings.INITIAL_ADMIN_EMAIL:
+            allowed_admin_emails.append(settings.INITIAL_ADMIN_EMAIL.lower())
+
+        if email.lower() in allowed_admin_emails:
             user = User(
                 email=email,
                 full_name=full_name,

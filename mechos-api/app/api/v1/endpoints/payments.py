@@ -19,6 +19,9 @@ if settings.STRIPE_SECRET_KEY:
 
 router = APIRouter()
 
+# Simulation webhook secret — must be set in dev .env to use the simulation webhook
+SIMULATION_WEBHOOK_KEY = getattr(settings, 'SIMULATION_WEBHOOK_KEY', 'dev-sim-key-change-me')
+
 class CreatePaymentSessionRequest(BaseModel):
     invoice_id: str
 
@@ -34,9 +37,14 @@ class BillingPortalRequest(BaseModel):
 @router.post("/create-session", response_model=PaymentSessionResponse)
 async def create_payment_session(
     body: CreatePaymentSessionRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_client_user)  # SECURITY: require client auth
 ):
-    result = await db.execute(select(Invoice).where(Invoice.id == body.invoice_id))
+    # SECURITY: enforce invoice ownership — client can only pay their own invoices
+    result = await db.execute(select(Invoice).where(
+        Invoice.id == body.invoice_id,
+        Invoice.client_id == current_user.id
+    ))
     invoice = result.scalars().first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -143,8 +151,21 @@ async def payment_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
 
-    # If Stripe keys are not set, allow simulation webhook fallback
+    # If Stripe keys are not set, allow simulation webhook fallback (DEV ONLY)
     if not settings.STRIPE_SECRET_KEY:
+        # Block this path entirely in non-development environments
+        if settings.ENVIRONMENT != "development":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Simulation webhook is only available in development environments."
+            )
+        # Require a simulation secret header even in dev
+        sim_key = request.headers.get("X-Simulation-Key", "")
+        if sim_key != SIMULATION_WEBHOOK_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing or invalid X-Simulation-Key header for dev simulation webhook."
+            )
         import json
         try:
             data = json.loads(payload.decode("utf-8"))
