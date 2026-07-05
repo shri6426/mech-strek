@@ -44,3 +44,4 @@
 [2026-07-05T18:01:23.962785] feat: add sign-in with google button to login pages
 [2026-07-05T18:55:37.962785] feat: parse URL tokens in layouts and persist access
 [2026-07-05T19:40:38.962785] cleanup: remove developer report and task logs
+[2026-07-05T21:49:17.962785] cleanup: merge next.js config files and ignore builds
