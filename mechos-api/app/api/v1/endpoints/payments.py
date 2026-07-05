@@ -7,11 +7,14 @@ import stripe
 
 from app.core.database import get_db
 from app.core.config import settings
+from app.api.deps import get_current_client_user
+from app.models.user import User
 from app.models.client_portal import Invoice
 from app.services.webhook import dispatch_webhook_event
 
 if settings.STRIPE_SECRET_KEY:
     stripe.api_key = settings.STRIPE_SECRET_KEY
+    stripe.api_version = "2023-10-16" # Pin Stripe API version for stability
 
 router = APIRouter()
 
@@ -23,6 +26,9 @@ class PaymentSessionResponse(BaseModel):
     checkout_url: str
     amount: float
     currency: str
+
+class BillingPortalRequest(BaseModel):
+    return_url: str = f"{settings.FRONTEND_URL}/portal/invoices"
 
 @router.post("/create-session", response_model=PaymentSessionResponse)
 async def create_payment_session(
@@ -45,9 +51,28 @@ async def create_payment_session(
             currency="INR"
         )
 
+    # Resolve customer user details
+    user_res = await db.execute(select(User).where(User.id == invoice.client_id))
+    client_user = user_res.scalars().first()
+    if not client_user:
+        raise HTTPException(status_code=404, detail="Client user profile not found")
+
     try:
-        # Create real Stripe Checkout Session
+        # 1. Resolve Stripe Customer by email (idempotent lookup/creation)
+        stripe_customer_id = None
+        customers = stripe.Customer.list(email=client_user.email, limit=1)
+        if customers.data:
+            stripe_customer_id = customers.data[0].id
+        else:
+            customer = stripe.Customer.create(
+                email=client_user.email,
+                name=client_user.full_name or "Client"
+            )
+            stripe_customer_id = customer.id
+
+        # 2. Create Stripe Checkout Session attached to customer
         checkout_session = stripe.checkout.Session.create(
+            customer=stripe_customer_id,
             payment_method_types=['card'],
             line_items=[{
                 'price_data': {
@@ -75,6 +100,38 @@ async def create_payment_session(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+
+@router.post("/billing-portal")
+async def create_billing_portal(
+    body: BillingPortalRequest,
+    current_user: User = Depends(get_current_client_user),
+):
+    """
+    Creates a Stripe Billing Portal Session for the client to manage cards and downloads.
+    """
+    if not settings.STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=400, detail="Stripe is not configured in this environment.")
+        
+    try:
+        # Resolve customer in Stripe
+        customers = stripe.Customer.list(email=current_user.email, limit=1)
+        if not customers.data:
+            customer = stripe.Customer.create(
+                email=current_user.email,
+                name=current_user.full_name or "Client"
+            )
+            customer_id = customer.id
+        else:
+            customer_id = customers.data[0].id
+            
+        # Create billing portal session
+        portal_session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=body.return_url
+        )
+        return {"url": portal_session.url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stripe Portal error: {str(e)}")
 
 @router.post("/webhook")
 async def payment_webhook(request: Request, db: AsyncSession = Depends(get_db)):
@@ -108,6 +165,12 @@ async def payment_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         return {"status": "ignored"}
 
     # Process production Stripe Webhook
+    if settings.ENVIRONMENT == "production" and not settings.STRIPE_WEBHOOK_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="STRIPE_WEBHOOK_SECRET is required in production environments to secure endpoints."
+        )
+
     try:
         if settings.STRIPE_WEBHOOK_SECRET:
             event = stripe.Webhook.construct_event(
