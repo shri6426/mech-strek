@@ -43,7 +43,7 @@ class Invoice(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     client_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
-    project_id = Column(String, ForeignKey("client_projects.id"), nullable=True)
+    project_id = Column(String, ForeignKey("client_projects.id"), nullable=True, index=True)
     amount = Column(Float, nullable=False)
     status = Column(String, default="Pending", nullable=False) # "Pending", "Paid", "Overdue"
     due_date = Column(DateTime(timezone=True), nullable=False)
@@ -60,7 +60,7 @@ class ClientFile(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     project_id = Column(String, ForeignKey("client_projects.id"), nullable=False, index=True)
-    uploader_id = Column(String, ForeignKey("users.id"), nullable=False)
+    uploader_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     file_name = Column(String, nullable=False)
     file_url = Column(String, nullable=False)
     file_type = Column(String, nullable=True) # e.g. "pdf", "image", "document"
@@ -75,7 +75,7 @@ class ProjectMessage(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     project_id = Column(String, ForeignKey("client_projects.id"), nullable=False, index=True)
-    sender_id = Column(String, ForeignKey("users.id"), nullable=False)
+    sender_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     content = Column(Text, nullable=False)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

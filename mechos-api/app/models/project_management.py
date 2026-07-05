@@ -13,7 +13,7 @@ class ProjectTask(Base):
     status = Column(String, default="TODO", nullable=False) # TODO, IN_PROGRESS, REVIEW, DONE
     priority = Column(String, default="MEDIUM", nullable=False) # LOW, MEDIUM, HIGH, URGENT
     task_type = Column(String, default="TASK", nullable=False) # TASK, TICKET
-    assigned_to = Column(String, ForeignKey("users.id"), nullable=True)
+    assigned_to = Column(String, ForeignKey("users.id"), nullable=True, index=True)
     due_date = Column(DateTime(timezone=True), nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -39,7 +39,7 @@ class ActivityFeed(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     project_id = Column(String, ForeignKey("client_projects.id"), nullable=False, index=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     action = Column(String, nullable=False) # e.g. "Task Created", "Milestone Completed"
     details = Column(Text, nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -9,7 +9,7 @@ class AuditLog(Base):
     action = Column(String, index=True)
     target = Column(String)  # e.g., "Inquiry", "PortfolioProject"
     target_id = Column(Integer, nullable=True)
-    user_id = Column(String, ForeignKey("users.id"))
+    user_id = Column(String, ForeignKey("users.id"), index=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     details = Column(String, nullable=True) # JSON string or text
 

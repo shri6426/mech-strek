@@ -55,7 +55,9 @@ from jose import jwt, JWTError
 from fastapi.responses import RedirectResponse
 
 @router.get("/magic-login")
+@limiter.limit("5/minute")
 async def magic_login(
+    request: Request,
     token: str,
     db: AsyncSession = Depends(get_db)
 ):

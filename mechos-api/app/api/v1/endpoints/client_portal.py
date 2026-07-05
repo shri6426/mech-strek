@@ -148,7 +148,10 @@ async def upload_project_file(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    file_extension = file.filename.split(".")[-1] if "." in file.filename else "bin"
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'zip'}
+    file_extension = file.filename.split(".")[-1].lower() if "." in file.filename else "bin"
+    if file_extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"File extension '.{file_extension}' is not allowed.")
     
     # Read bytes and upload to Supabase Storage
     file_bytes = await file.read()
