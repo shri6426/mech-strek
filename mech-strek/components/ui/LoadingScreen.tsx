@@ -16,6 +16,7 @@ export default function LoadingScreen() {
     <AnimatePresence>
       {!done && (
         <motion.div
+          key="loading"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5, ease: 'easeInOut' }}

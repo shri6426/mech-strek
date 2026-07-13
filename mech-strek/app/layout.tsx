@@ -21,7 +21,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Mech Strek — Premium Web Design & Development Agency",
+  title: "Mech Strek",
   description:
     "We build premium websites that impress customers, grow your business, and convert visitors into paying clients. Expert web design, development, and digital experiences.",
   keywords:
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   authors: [{ name: "Mech Strek" }],
   creator: "Mech Strek",
   openGraph: {
-    title: "Mech Strek — Premium Web Design & Development Agency",
+    title: "Mech Strek",
     description:
       "We build premium websites that impress customers, grow your business, and convert visitors into paying clients.",
     type: "website",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Mech Strek — Premium Web Design & Development Agency",
+    title: "Mech Strek",
     description: "Premium websites designed to grow your business.",
   },
   robots: {
@@ -61,7 +61,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${outfit.variable}`}>
       <body className="bg-background text-white antialiased overflow-x-hidden">
-        <LoadingScreen />
         <CustomCursor />
         <ScrollProgressBar />
         <Navbar />

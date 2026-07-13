@@ -73,15 +73,10 @@ export default function Contact() {
             <p className="text-sm text-[#666] leading-relaxed mb-10">
               Tell us about your project and we&apos;ll bring it to life. Free consultation, no strings attached.
             </p>
-
             <div className="space-y-4 mb-10">
               <a href="mailto:mechstrek@gmail.com" className="flex items-center gap-3 text-sm text-[#666] hover:text-white transition-colors group">
                 <Mail size={14} className="flex-shrink-0" />
                 mechstrek@gmail.com
-              </a>
-              <a href="tel:+919876543210" className="flex items-center gap-3 text-sm text-[#666] hover:text-white transition-colors group">
-                <Phone size={14} className="flex-shrink-0" />
-                +91 98765 43210
               </a>
             </div>
 
@@ -122,9 +117,8 @@ export default function Contact() {
                     <Field label="Your Name" name="name" value={form.name} onChange={set('name')} required />
                     <Field label="Business Name" name="business" value={form.business} onChange={set('business')} />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 gap-8">
                     <Field label="Email" name="email" type="email" value={form.email} onChange={set('email')} required />
-                    <Field label="Phone" name="phone" type="tel" value={form.phone} onChange={set('phone')} />
                   </div>
 
                   {/* Textarea */}
@@ -141,42 +135,7 @@ export default function Contact() {
                     />
                   </div>
 
-                  {/* Budget */}
-                  <div className="space-y-1.5 relative">
-                    <label className="text-xs text-[#555] uppercase tracking-widest">Budget Range</label>
-                    <button
-                      type="button"
-                      onClick={() => setBudgetOpen(!budgetOpen)}
-                      className="w-full flex items-center justify-between py-2.5 bg-transparent text-sm border-b border-[rgba(255,255,255,0.1)] text-left"
-                    >
-                      <span style={{ color: form.budget ? 'white' : '#333' }}>{form.budget || 'Select range'}</span>
-                      <motion.div animate={{ rotate: budgetOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                        <ChevronDown size={14} className="text-[#555]" />
-                      </motion.div>
-                    </button>
-                    <AnimatePresence>
-                      {budgetOpen && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -4 }}
-                          transition={{ duration: 0.15 }}
-                          className="absolute left-0 right-0 z-50 mt-1 rounded-lg overflow-hidden"
-                          style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
-                        >
-                          {budgets.map(b => (
-                            <button
-                              key={b} type="button"
-                              onClick={() => { set('budget')(b); setBudgetOpen(false); }}
-                              className="w-full px-4 py-3 text-sm text-[#888] hover:text-white hover:bg-white/5 text-left transition-colors"
-                            >
-                              {b}
-                            </button>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+
 
                   <button
                     type="submit"

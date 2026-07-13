@@ -32,11 +32,34 @@ export default function Footer() {
             <p className="text-sm text-[#555] leading-relaxed mb-5 max-w-xs">
               We build premium websites that grow businesses and leave lasting impressions.
             </p>
-            <a href="mailto:mechstrek@gmail.com"
-              className="inline-flex items-center gap-2 text-sm text-[#666] hover:text-white transition-colors">
-              <Mail size={13} />
-              mechstrek@gmail.com
-            </a>
+            <div className="flex flex-col gap-3">
+              <a href="mailto:mechstrek@gmail.com"
+                className="inline-flex items-center gap-2 text-sm text-[#666] hover:text-white transition-colors">
+                <Mail size={13} />
+                mechstrek@gmail.com
+              </a>
+              <a href="https://www.instagram.com/mech_strek?igsh=ZWx5enZzYjl2bDI2"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-[#666] hover:text-white transition-colors">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                  <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                </svg>
+                @mech_strek
+              </a>
+            </div>
           </div>
 
           {/* Links */}

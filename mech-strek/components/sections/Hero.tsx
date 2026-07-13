@@ -1,453 +1,327 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import gsap from 'gsap';
+import { useRef, useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 
-/* ═══════════════════════════════════════════════════════════
-   CINEMATIC HERO — "We Build Websites That People Remember"
-   
-   Timeline (~7 s on desktop, instant on reduced-motion):
-     0.0 s  Blueprint grid fades in
-     0.3 s  Browser frame draws via SVG stroke animation
-     1.2 s  Skeleton loaders shimmer inside browser
-     2.6 s  Skeleton → real website content (staggered)
-     4.5 s  Camera zoom, UI glow bloom
-     5.5 s  Final headline types in
-     6.5 s  CTA buttons appear
-   ═══════════════════════════════════════════════════════════ */
+interface HandPos { x: number; y: number; }
+
+/* ── Scanlines overlay ── */
+function Scanlines() {
+  return (
+    <div
+      className="absolute inset-0 pointer-events-none"
+      style={{
+        zIndex: 3,
+        backgroundImage:
+          'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.12) 3px, rgba(0,0,0,0.12) 4px)',
+      }}
+    />
+  );
+}
+
+/* ── Retro Win95-style window frame ── */
+function RetroWindow({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        border: '2px solid rgba(255,255,255,0.85)',
+        background: 'rgba(0,0,0,0.96)',
+        boxShadow: '4px 4px 0px rgba(255,255,255,0.15)',
+        width: '100%',
+        maxWidth: '640px',
+      }}
+    >
+      {/* Title bar */}
+      <div
+        style={{
+          borderBottom: '2px solid rgba(255,255,255,0.85)',
+          background: 'rgba(255,255,255,0.06)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 10px',
+        }}
+      >
+        <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#b91c1c', fontWeight: 600, letterSpacing: '0.2em' }}>
+          MECH_STREK.EXE
+        </span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {['─', '□', '✕'].map((sym, i) => (
+            <div
+              key={i}
+              style={{
+                width: 18, height: 18,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '1px solid rgba(255,255,255,0.45)',
+                color: 'rgba(255,255,255,0.7)',
+                fontFamily: 'monospace',
+                fontSize: 9,
+              }}
+            >
+              {sym}
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Body */}
+      <div style={{ padding: '24px 28px' }}>{children}</div>
+    </div>
+  );
+}
 
 export default function Hero() {
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const browserRef = useRef<HTMLDivElement>(null);
-  const svgFrameRef = useRef<SVGRectElement>(null);
-  const svgBarRef = useRef<SVGRectElement>(null);
-  const skeletonRef = useRef<HTMLDivElement>(null);
-  const websiteRef = useRef<HTMLDivElement>(null);
-  const headlineRef = useRef<HTMLDivElement>(null);
-  const ctaRef = useRef<HTMLDivElement>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
-  const glowRef = useRef<HTMLDivElement>(null);
-  const cameraRef = useRef<HTMLDivElement>(null);
-
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const leftHandRef  = useRef<HTMLDivElement>(null);
+  const rightHandRef = useRef<HTMLDivElement>(null);
+  const posRef       = useRef<HandPos>({ x: 0, y: 0 });
+  const targetRef    = useRef<HandPos>({ x: 0, y: 0 });
+  const rafRef       = useRef<number>(0);
   const [isMobile, setIsMobile] = useState(false);
 
-  /* ── Detect reduced-motion & mobile ── */
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setPrefersReducedMotion(mq.matches);
-    const mobile = window.innerWidth < 768;
-    setIsMobile(mobile);
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, []);
 
-  /* ── Main GSAP timeline ── */
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+  const tick = useCallback(() => {
+    posRef.current.x = lerp(posRef.current.x, targetRef.current.x, 0.06);
+    posRef.current.y = lerp(posRef.current.y, targetRef.current.y, 0.06);
+    const px = posRef.current.x;
+    const py = posRef.current.y;
+    if (leftHandRef.current) {
+      leftHandRef.current.style.transform = `translate(${-px * 20}px, ${-py * 25}px)`;
+    }
+    if (rightHandRef.current) {
+      rightHandRef.current.style.transform = `translate(${px * 20}px, ${-py * 25}px)`;
+    }
+    rafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  /* Mouse tracking */
   useEffect(() => {
-    if (prefersReducedMotion) return;
+    const onMouse = (e: MouseEvent) => {
+      targetRef.current.x = (e.clientX / window.innerWidth - 0.5) * 2;
+      targetRef.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
+    };
+    window.addEventListener('mousemove', onMouse);
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      window.removeEventListener('mousemove', onMouse);
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, [tick]);
 
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-
-      // Measure SVG stroke lengths
-      const framePerimeter = svgFrameRef.current
-        ? (svgFrameRef.current as SVGRectElement).getTotalLength?.()
-        : 1600;
-      const barPerimeter = svgBarRef.current
-        ? (svgBarRef.current as SVGRectElement).getTotalLength?.()
-        : 400;
-
-      // Set initial states
-      gsap.set(svgFrameRef.current, {
-        strokeDasharray: framePerimeter,
-        strokeDashoffset: framePerimeter,
-      });
-      gsap.set(svgBarRef.current, {
-        strokeDasharray: barPerimeter,
-        strokeDashoffset: barPerimeter,
-      });
-      gsap.set(skeletonRef.current, { opacity: 0 });
-      gsap.set(websiteRef.current, { opacity: 0 });
-      gsap.set(headlineRef.current, { opacity: 0, y: 30 });
-      gsap.set(ctaRef.current, { opacity: 0, y: 20 });
-      gsap.set(glowRef.current, { opacity: 0, scale: 0.8 });
-
-      // Phase 0: Blueprint grid
-      tl.fromTo(
-        gridRef.current,
-        { opacity: 0 },
-        { opacity: 1, duration: 0.6 },
-        0
-      );
-
-      // Phase 1: Draw browser frame
-      tl.to(
-        svgFrameRef.current,
-        { strokeDashoffset: 0, duration: isMobile ? 0.8 : 1.2, ease: 'power2.inOut' },
-        0.3
-      );
-      tl.to(
-        svgBarRef.current,
-        { strokeDashoffset: 0, duration: isMobile ? 0.5 : 0.8, ease: 'power2.inOut' },
-        0.5
-      );
-      // Browser bar dots
-      tl.fromTo(
-        '.browser-dot',
-        { scale: 0 },
-        { scale: 1, stagger: 0.08, duration: 0.3 },
-        1.0
-      );
-      // URL bar
-      tl.fromTo(
-        '.url-bar',
-        { scaleX: 0 },
-        { scaleX: 1, duration: 0.4, transformOrigin: 'left' },
-        1.1
-      );
-
-      // Phase 2: Skeleton loaders
-      tl.to(
-        skeletonRef.current,
-        { opacity: 1, duration: 0.4 },
-        isMobile ? 1.3 : 1.5
-      );
-
-      // Phase 3: Website content reveal
-      tl.to(
-        skeletonRef.current,
-        { opacity: 0, duration: 0.3 },
-        isMobile ? 2.2 : 2.8
-      );
-      tl.to(
-        websiteRef.current,
-        { opacity: 1, duration: 0.5 },
-        isMobile ? 2.4 : 3.0
-      );
-      // Stagger website inner elements
-      tl.fromTo(
-        '.site-el',
-        { opacity: 0, y: 12 },
-        { opacity: 1, y: 0, stagger: 0.08, duration: 0.4 },
-        isMobile ? 2.5 : 3.1
-      );
-
-      // Phase 4: Camera zoom & glow
-      tl.to(
-        cameraRef.current,
-        { scale: isMobile ? 1.02 : 1.06, duration: 1.2, ease: 'power2.inOut' },
-        isMobile ? 3.2 : 4.0
-      );
-      tl.to(
-        glowRef.current,
-        { opacity: 1, scale: 1, duration: 1.0, ease: 'power2.out' },
-        isMobile ? 3.5 : 4.3
-      );
-
-      // Phase 5: Headline
-      tl.to(
-        headlineRef.current,
-        { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' },
-        isMobile ? 3.8 : 5.0
-      );
-
-      // Phase 6: CTA buttons
-      tl.to(
-        ctaRef.current,
-        { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' },
-        isMobile ? 4.3 : 5.8
-      );
-    }, sectionRef);
-
-    return () => ctx.revert();
-  }, [prefersReducedMotion, isMobile]);
-
-  /* ── Reduced motion: show everything immediately ── */
-  if (prefersReducedMotion) {
-    return (
-      <section id="home" className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-28 pb-16" style={{ background: 'var(--bg)' }}>
-        <div className="text-center max-w-4xl mx-auto">
-          <h1 className="font-display font-black leading-[0.95] tracking-tight text-white mb-6" style={{ fontSize: 'clamp(36px, 6vw, 80px)' }}>
-            We Build Websites That{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0EA5E9] to-[#D946EF]">People Remember.</span>
-          </h1>
-          <p className="text-lg text-[#a69fba] max-w-lg mx-auto mb-10 leading-relaxed">
-            From blueprint to brilliance — we craft premium digital experiences that convert visitors into customers.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button onClick={() => document.querySelector('#contact')?.scrollIntoView({ behavior: 'smooth' })} className="btn-primary bg-gradient-to-r from-[#0EA5E9] to-[#D946EF] text-white border-0">
-              Start Your Project →
-            </button>
-            <button onClick={() => document.querySelector('#portfolio')?.scrollIntoView({ behavior: 'smooth' })} className="btn-secondary">
-              View Our Work
-            </button>
-          </div>
-        </div>
-      </section>
-    );
-  }
+  /* Device orientation for mobile */
+  useEffect(() => {
+    if (!isMobile) return;
+    const handler = (e: DeviceOrientationEvent) => {
+      if (e.beta === null || e.gamma === null) return;
+      targetRef.current.x = Math.max(-1, Math.min(1, (e.gamma ?? 0) / 25));
+      targetRef.current.y = Math.max(-1, Math.min(1, ((e.beta ?? 0) - 40) / 30));
+    };
+    window.addEventListener('deviceorientation', handler);
+    return () => window.removeEventListener('deviceorientation', handler);
+  }, [isMobile]);
 
   return (
     <section
       id="home"
-      ref={sectionRef}
-      className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden"
-      style={{ background: 'var(--bg)' }}
+      style={{
+        position: 'relative',
+        minHeight: '100vh',
+        background: '#000000',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+      }}
     >
-      {/* ── Blueprint Grid Background ── */}
-      <div
-        ref={gridRef}
-        className="absolute inset-0 pointer-events-none"
-        style={{ opacity: 0 }}
-      >
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(14,165,233,0.06) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(14,165,233,0.06) 1px, transparent 1px)
-            `,
-            backgroundSize: '60px 60px',
-          }}
-        />
-        {/* Cross marks at intersections */}
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `radial-gradient(circle, rgba(14,165,233,0.12) 1px, transparent 1px)`,
-            backgroundSize: '60px 60px',
-          }}
-        />
-      </div>
+      <Scanlines />
 
-      {/* ── Glow bloom behind browser ── */}
+      {/* Vignette */}
       <div
-        ref={glowRef}
-        className="absolute pointer-events-none"
         style={{
-          width: '700px',
-          height: '500px',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -55%)',
-          background: 'radial-gradient(ellipse, rgba(14,165,233,0.15) 0%, rgba(217,70,239,0.08) 40%, transparent 70%)',
-          filter: 'blur(60px)',
+          position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none',
+          background: 'radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(0,0,0,0.65) 100%)',
         }}
       />
 
-      {/* ── Camera wrapper (zooms) ── */}
+      {/* ── Left hand ── comes from bottom-left, reaches toward center */}
       <div
-        ref={cameraRef}
-        className="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-6 pt-28 sm:pt-32 pb-8"
+        ref={leftHandRef}
+        style={{
+          position: 'absolute',
+          left: isMobile ? '-15vw' : '-10vw',
+          bottom: isMobile ? '5%' : '8%',
+          width: isMobile ? '72vw' : '55vw',
+          maxWidth: 680,
+          zIndex: 4,
+          pointerEvents: 'none',
+          willChange: 'transform',
+          animation: 'floatLeft 5s ease-in-out infinite alternate',
+        }}
       >
-        {/* ── Browser Frame ── */}
-        <div ref={browserRef} className="relative mx-auto w-full">
-          {/* SVG stroke-animated border */}
-          <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            viewBox="0 0 800 480"
-            fill="none"
-            preserveAspectRatio="none"
-            style={{ zIndex: 2 }}
-          >
-            <rect
-              ref={svgFrameRef}
-              x="1" y="1" width="798" height="478" rx="16"
-              stroke="rgba(14,165,233,0.5)"
-              strokeWidth="1.5"
-              fill="none"
-            />
-            <rect
-              ref={svgBarRef}
-              x="1" y="1" width="798" height="44" rx="16"
-              stroke="rgba(14,165,233,0.3)"
-              strokeWidth="1"
-              fill="none"
-            />
-          </svg>
+        <Image
+          src="/left-hand.png"
+          alt=""
+          width={680}
+          height={400}
+          style={{ width: '100%', height: 'auto', display: 'block' }}
+          priority
+        />
+      </div>
 
-          {/* Actual browser shell */}
-          <div
-            className="rounded-2xl overflow-hidden"
+      {/* ── Right hand ── comes from bottom-right, reaches toward center */}
+      <div
+        ref={rightHandRef}
+        style={{
+          position: 'absolute',
+          right: isMobile ? '-15vw' : '-10vw',
+          bottom: isMobile ? '5%' : '8%',
+          width: isMobile ? '72vw' : '55vw',
+          maxWidth: 680,
+          zIndex: 4,
+          pointerEvents: 'none',
+          willChange: 'transform',
+          animation: 'floatRight 5s ease-in-out infinite alternate',
+          animationDelay: '0.7s',
+        }}
+      >
+        <Image
+          src="/left-hand.png"
+          alt=""
+          width={680}
+          height={400}
+          style={{ width: '100%', height: 'auto', display: 'block', transform: 'scaleX(-1)' }}
+          priority
+        />
+      </div>
+
+      {/* ── Main content — sits in center on top of hands ── */}
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 10,
+          width: '100%',
+          maxWidth: 1280,
+          padding: '0 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          paddingTop: 64,
+          paddingBottom: 80,
+        }}
+      >
+        <RetroWindow>
+          {/* Blinking cursor prompt */}
+          <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>C:\MECHSTREK&gt;</span>
+            <span style={{ display: 'inline-block', width: 7, height: 13, background: 'rgba(255,255,255,0.8)', animation: 'blink 1s step-end infinite' }} />
+          </div>
+
+          {/* Headline */}
+          <h1
             style={{
-              border: '1px solid rgba(255,255,255,0.08)',
-              background: '#0a0a0f',
-              boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)',
+              fontFamily: 'monospace',
+              fontWeight: 900,
+              fontSize: 'clamp(26px, 5vw, 54px)',
+              color: '#ffffff',
+              letterSpacing: '-0.02em',
+              lineHeight: 1.1,
+              marginBottom: 10,
             }}
           >
-            {/* ── Title bar ── */}
-            <div
-              className="flex items-center gap-2 px-4 py-3"
-              style={{ background: '#111118', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
-            >
-              <div className="flex gap-1.5">
-                <div className="browser-dot w-2.5 h-2.5 rounded-full" style={{ background: '#ff5f57', transform: 'scale(0)' }} />
-                <div className="browser-dot w-2.5 h-2.5 rounded-full" style={{ background: '#febc2e', transform: 'scale(0)' }} />
-                <div className="browser-dot w-2.5 h-2.5 rounded-full" style={{ background: '#28c840', transform: 'scale(0)' }} />
-              </div>
-              <div
-                className="url-bar flex-1 mx-3 flex items-center gap-2 px-3 py-1.5 rounded-lg"
-                style={{ background: '#1a1a24', border: '1px solid rgba(255,255,255,0.06)', transform: 'scaleX(0)' }}
-              >
-                <div className="w-2 h-2 rounded-full bg-green-500/60 flex-shrink-0" />
-                <span className="text-[10px] text-[#555] truncate">yourwebsite.com</span>
-              </div>
-            </div>
+            MECH{' '}
+            <em style={{ fontStyle: 'italic', color: 'transparent', WebkitTextStroke: '2px rgba(255,255,255,0.9)' }}>
+              STREK
+            </em>
+          </h1>
 
-            {/* ── Browser body ── */}
-            <div className="relative" style={{ height: isMobile ? '220px' : '360px', background: '#0a0a0f' }}>
-              {/* Skeleton loaders */}
-              <div ref={skeletonRef} className="absolute inset-0 p-4 sm:p-6 space-y-4">
-                {/* Skeleton nav */}
-                <div className="flex items-center justify-between">
-                  <div className="skeleton-bar w-20 sm:w-28 h-3 rounded" />
-                  <div className="flex gap-3">
-                    <div className="skeleton-bar w-10 sm:w-14 h-2.5 rounded hidden sm:block" />
-                    <div className="skeleton-bar w-10 sm:w-14 h-2.5 rounded hidden sm:block" />
-                    <div className="skeleton-bar w-10 sm:w-14 h-2.5 rounded hidden sm:block" />
-                    <div className="skeleton-bar w-16 sm:w-20 h-6 rounded-md" />
-                  </div>
-                </div>
-                {/* Skeleton hero */}
-                <div className="pt-4 sm:pt-8 space-y-3">
-                  <div className="skeleton-bar w-4/5 h-5 sm:h-8 rounded" />
-                  <div className="skeleton-bar w-3/5 h-5 sm:h-8 rounded" />
-                  <div className="skeleton-bar w-2/3 h-2.5 sm:h-3 rounded mt-4" />
-                  <div className="skeleton-bar w-1/2 h-2.5 sm:h-3 rounded" />
-                </div>
-                {/* Skeleton buttons */}
-                <div className="flex gap-2 sm:gap-3 pt-2 sm:pt-4">
-                  <div className="skeleton-bar w-24 sm:w-32 h-8 sm:h-10 rounded-lg" />
-                  <div className="skeleton-bar w-20 sm:w-28 h-8 sm:h-10 rounded-lg" />
-                </div>
-                {/* Skeleton cards */}
-                <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-2 sm:pt-4">
-                  <div className="skeleton-bar h-12 sm:h-20 rounded-lg" />
-                  <div className="skeleton-bar h-12 sm:h-20 rounded-lg" />
-                  <div className="skeleton-bar h-12 sm:h-20 rounded-lg" />
-                </div>
-              </div>
-
-              {/* ── Real website content ── */}
-              <div ref={websiteRef} className="absolute inset-0 p-4 sm:p-6">
-                {/* Mini nav */}
-                <div className="site-el flex items-center justify-between mb-6 sm:mb-10">
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded bg-gradient-to-br from-[#0EA5E9] to-[#D946EF]" />
-                    <span className="text-[10px] sm:text-xs font-bold text-white">YourBrand</span>
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-4">
-                    <span className="text-[8px] sm:text-[10px] text-[#666] hidden sm:inline">Home</span>
-                    <span className="text-[8px] sm:text-[10px] text-[#666] hidden sm:inline">About</span>
-                    <span className="text-[8px] sm:text-[10px] text-[#666] hidden sm:inline">Work</span>
-                    <div className="px-2 sm:px-3 py-1 rounded-md text-[8px] sm:text-[9px] font-semibold text-black bg-white">Contact</div>
-                  </div>
-                </div>
-
-                {/* Mini hero text */}
-                <div className="site-el mb-3 sm:mb-5">
-                  <div className="font-display font-black text-white leading-tight" style={{ fontSize: isMobile ? '14px' : 'clamp(16px, 2.2vw, 28px)' }}>
-                    Build something
-                    <br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0EA5E9] to-[#D946EF]">extraordinary.</span>
-                  </div>
-                </div>
-                <div className="site-el flex gap-1 sm:gap-2 text-[7px] sm:text-[9px] text-[#888] mb-4 sm:mb-6">
-                  <span>Fast.</span>
-                  <span>Modern.</span>
-                  <span>Responsive.</span>
-                </div>
-
-                {/* Mini buttons */}
-                <div className="site-el flex gap-2 mb-4 sm:mb-6">
-                  <div className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[8px] sm:text-[10px] font-semibold text-black bg-gradient-to-r from-[#0EA5E9] to-[#D946EF] shadow-[0_0_16px_rgba(14,165,233,0.4)]">
-                    Get Started →
-                  </div>
-                  <div className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[8px] sm:text-[10px] text-[#aaa] border border-white/10">
-                    Learn More
-                  </div>
-                </div>
-
-                {/* Mini feature cards */}
-                <div className="site-el grid grid-cols-3 gap-2 sm:gap-3">
-                  {[
-                    { icon: '⚡', label: 'Lightning Fast', color: '#0EA5E9' },
-                    { icon: '🎨', label: 'Beautiful UI', color: '#D946EF' },
-                    { icon: '📱', label: 'Responsive', color: '#34d399' },
-                  ].map((card) => (
-                    <div
-                      key={card.label}
-                      className="p-2 sm:p-3 rounded-lg border"
-                      style={{
-                        background: `${card.color}08`,
-                        borderColor: `${card.color}22`,
-                      }}
-                    >
-                      <div className="text-xs sm:text-sm mb-1">{card.icon}</div>
-                      <div className="text-[7px] sm:text-[9px] font-medium text-white/80">{card.label}</div>
-                      <div className="mt-1 sm:mt-1.5 h-1 rounded-full overflow-hidden" style={{ background: `${card.color}15` }}>
-                        <motion.div
-                          className="h-full rounded-full"
-                          style={{ background: card.color }}
-                          initial={{ width: 0 }}
-                          animate={{ width: '75%' }}
-                          transition={{ duration: 1.5, delay: 3.5, ease: 'easeOut' }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Glow overlay inside browser */}
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: 'radial-gradient(ellipse at 30% 20%, rgba(14,165,233,0.06) 0%, transparent 60%)',
-                }}
-              />
-            </div>
+          {/* Tagline */}
+          <p style={{ fontFamily: 'monospace', fontSize: 'clamp(12px, 2vw, 16px)', color: 'rgba(255,255,255,0.65)', letterSpacing: '0.05em', marginBottom: 12 }}>
+            &gt; WE BUILD WEBSITES PEOPLE REMEMBER.
+          </p>
+          
+          <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 4 }}>
+             <span><span style={{color: '#d946ef'}}>*</span> INITIATING NEURAL LINK... <span style={{color: '#fff'}}>[OK]</span></span>
+             <span><span style={{color: '#d946ef'}}>*</span> OVERRIDING DEFAULT AESTHETICS... <span style={{color: '#fff'}}>[OK]</span></span>
+             <span><span style={{color: '#d946ef'}}>*</span> AWAITING USER COMMAND_</span>
           </div>
-        </div>
+
+          {/* Divider */}
+          <div style={{ height: 1, background: 'rgba(255,255,255,0.18)', marginBottom: 20 }} />
+
+          {/* Stats / System Modules */}
+          <div style={{ display: 'flex', gap: 32, marginBottom: 24, flexWrap: 'wrap' }}>
+            {[{ num: '01', label: 'IMMERSIVE' }, { num: '02', label: 'PERFORMANCE' }, { num: '03', label: 'REVENUE' }].map(s => (
+              <div key={s.num} style={{ fontFamily: 'monospace' }}>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: 'clamp(18px, 2.5vw, 26px)' }}>SYS.{s.num}</div>
+                <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: 10, letterSpacing: '0.15em' }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTAs */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => document.querySelector('#contact')?.scrollIntoView({ behavior: 'smooth' })}
+              style={{
+                fontFamily: 'monospace', fontWeight: 700, fontSize: 12,
+                padding: '12px 24px', background: '#ffffff', color: '#000000',
+                border: '2px solid #ffffff', letterSpacing: '0.1em',
+                boxShadow: '3px 3px 0px rgba(255,255,255,0.25)',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background='#000'; e.currentTarget.style.color='#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.background='#fff'; e.currentTarget.style.color='#000'; }}
+            >
+              START YOUR PROJECT →
+            </button>
+            <button
+              onClick={() => document.querySelector('#portfolio')?.scrollIntoView({ behavior: 'smooth' })}
+              style={{
+                fontFamily: 'monospace', fontSize: 12,
+                padding: '12px 24px', background: 'transparent', color: 'rgba(255,255,255,0.7)',
+                border: '2px solid rgba(255,255,255,0.3)', letterSpacing: '0.1em',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(255,255,255,0.8)'; e.currentTarget.style.color='#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(255,255,255,0.3)'; e.currentTarget.style.color='rgba(255,255,255,0.7)'; }}
+            >
+              VIEW OUR WORK
+            </button>
+          </div>
+        </RetroWindow>
       </div>
 
-      {/* ── Headline below browser ── */}
-      <div ref={headlineRef} className="relative z-20 text-center px-6 mt-8 sm:mt-12">
-        <h1
-          className="font-display font-black leading-[0.95] tracking-tight text-white mb-4"
-          style={{ fontSize: 'clamp(32px, 5.5vw, 72px)' }}
-        >
-          We Build Websites That{' '}
-          <br className="hidden sm:block" />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0EA5E9] via-[#a78bfa] to-[#D946EF]">
-            People Remember.
-          </span>
-        </h1>
-        <p className="text-sm sm:text-lg text-[#a69fba] max-w-lg mx-auto leading-relaxed">
-          From blueprint to brilliance — we craft premium digital experiences that convert visitors into customers.
-        </p>
-      </div>
-
-      {/* ── CTA Buttons ── */}
-      <div ref={ctaRef} className="relative z-20 flex flex-col sm:flex-row items-center justify-center gap-4 mt-8 sm:mt-10 pb-16">
-        <button
-          onClick={() => document.querySelector('#contact')?.scrollIntoView({ behavior: 'smooth' })}
-          className="btn-primary bg-gradient-to-r from-[#0EA5E9] to-[#D946EF] text-white border-0 hover:opacity-90 shadow-[0_0_24px_rgba(14,165,233,0.3)] hover:shadow-[0_0_36px_rgba(217,70,239,0.5)] transition-all duration-300"
-        >
-          Start Your Project →
-        </button>
-        <button
-          onClick={() => document.querySelector('#portfolio')?.scrollIntoView({ behavior: 'smooth' })}
-          className="btn-secondary backdrop-blur-md bg-white/5 border-white/10 hover:bg-white/10"
-        >
-          View Our Work
-        </button>
-      </div>
-
-      {/* Subtle bottom gradient fade */}
+      {/* Bottom fade to blend into next section */}
       <div
-        className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none z-30"
-        style={{ background: 'linear-gradient(to top, var(--bg), transparent)' }}
+        style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, height: 120,
+          background: 'linear-gradient(to top, #000000, transparent)',
+          zIndex: 20, pointerEvents: 'none',
+        }}
       />
+
+      {/* CSS keyframe animations */}
+      <style>{`
+        @keyframes floatLeft {
+          0%   { transform: translateY(0px); }
+          100% { transform: translateY(-18px); }
+        }
+        @keyframes floatRight {
+          0%   { transform: translateY(-10px); }
+          100% { transform: translateY(10px); }
+        }
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0; }
+        }
+      `}</style>
     </section>
   );
 }

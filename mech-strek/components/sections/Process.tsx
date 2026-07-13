@@ -63,7 +63,7 @@ export default function Process() {
           
           {/* Animated fill line */}
           <motion.div 
-            className="absolute left-[20px] md:left-1/2 top-0 bottom-0 w-[1px] bg-purple-500 -translate-x-1/2 origin-top"
+            className="absolute left-[20px] md:left-1/2 top-0 bottom-0 w-[1px] bg-red-700 -translate-x-1/2 origin-top"
             style={{ scaleY: lineHeight }}
           />
 
@@ -74,7 +74,13 @@ export default function Process() {
                 <div key={s.n} className="relative flex flex-col md:flex-row items-center md:py-12">
                   
                   {/* Node Circle */}
-                  <div className="absolute left-[20px] md:left-1/2 w-4 h-4 rounded-full bg-[#080808] border-2 border-white/20 -translate-x-1/2 z-10" />
+                  <motion.div 
+                    initial={{ backgroundColor: '#080808', borderColor: 'rgba(255,255,255,0.2)' }}
+                    whileInView={{ backgroundColor: '#b91c1c', borderColor: '#b91c1c', boxShadow: '0 0 12px rgba(185,28,28,0.6)' }}
+                    viewport={{ margin: '1000px 0px -50% 0px' }}
+                    transition={{ duration: 0.3 }}
+                    className="absolute left-[20px] md:left-1/2 w-4 h-4 rounded-full border-2 -translate-x-1/2 z-10" 
+                  />
 
                   {/* Desktop Empty Space for alignment */}
                   <div className={`hidden md:block w-1/2 ${isEven ? 'order-2' : 'order-1'}`} />

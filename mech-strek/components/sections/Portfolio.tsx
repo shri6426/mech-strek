@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, MouseEvent as ReactMouseEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ExternalLink, ChevronLeft, ChevronRight, User, Dumbbell, Zap } from 'lucide-react';
+import { ExternalLink, ChevronLeft, ChevronRight, User, Dumbbell, Zap, Coffee, Vault } from 'lucide-react';
 import { fetchPortfolioProjects, PortfolioProject } from '@/lib/api';
 
 /* ═══════════════════════════════════════════════════════════
@@ -18,6 +18,22 @@ const categories = [
     glow: '#f59e0b33',
   },
   {
+    key: 'gym',
+    label: 'Gyms',
+    icon: Dumbbell,
+    desc: 'Fitness brands & fight clubs',
+    accent: '#ef4444',
+    glow: '#ef444433',
+  },
+  {
+    key: 'cafe',
+    label: 'Cafes',
+    icon: Coffee,
+    desc: 'Coffee shops & bistros',
+    accent: '#d97706',
+    glow: '#d9770633',
+  },
+  {
     key: 'portfolio',
     label: 'Portfolios',
     icon: User,
@@ -26,12 +42,12 @@ const categories = [
     glow: '#a78bfa33',
   },
   {
-    key: 'gym',
-    label: 'Gyms',
-    icon: Dumbbell,
-    desc: 'Fitness brands & fight clubs',
-    accent: '#ef4444',
-    glow: '#ef444433',
+    key: 'ecommerce',
+    label: 'E-Commerce',
+    icon: Vault,
+    desc: 'Confidential Next-Gen Builds',
+    accent: '#10b981',
+    glow: '#10b98133',
   },
 ];
 
@@ -108,6 +124,26 @@ const projects = [
     url: 'https://lubna-shireen-porfolio.vercel.app/',
     tags: ['Next.js', 'Tailwind', 'Framer Motion'],
     accent: '#f472b6',
+  },
+  {
+    id: 8,
+    title: 'BC Cafe',
+    type: 'cafe',
+    category: 'Cafe / Web',
+    desc: 'An immersive digital experience for a modern cafe. Features a warm, inviting aesthetic with smooth transitions and a dynamic menu layout.',
+    url: 'https://aashishstack.github.io/bc-cafe-web/',
+    tags: ['HTML', 'Web Design', 'UI/UX'],
+    accent: '#d97706',
+  },
+  {
+    id: 9,
+    title: 'Project Nebula',
+    type: 'ecommerce',
+    category: 'Confidential / E-Commerce',
+    desc: 'A next-generation premium e-commerce platform currently in stealth development. Pushing the boundaries of spatial UI to deliver a "woah" experience.',
+    url: '#',
+    tags: ['Next.js', 'WebGL', 'Classified'],
+    accent: '#10b981',
   },
 ];
 

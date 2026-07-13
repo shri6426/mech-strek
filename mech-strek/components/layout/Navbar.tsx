@@ -62,8 +62,8 @@ export default function Navbar() {
         className="fixed top-0 left-0 right-0 z-[9999]"
         style={{
           background: scrolled
-            ? 'rgba(8, 8, 12, 0.55)'
-            : 'rgba(8, 8, 12, 0.18)',
+            ? 'rgba(8, 8, 12, 0.20)'
+            : 'rgba(8, 8, 12, 0.20)',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
           backdropFilter: 'blur(28px) saturate(200%) brightness(1.05)',
           WebkitBackdropFilter: 'blur(28px) saturate(200%) brightness(1.05)',
@@ -147,13 +147,13 @@ export default function Navbar() {
                   <Link
                     href="/admin"
                     onClick={() => setLoginDropdownOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2.5 text-xs font-medium text-purple-300 hover:text-white hover:bg-purple-500/10 rounded-xl transition-colors group"
+                    className="flex items-center gap-3 px-3 py-2.5 text-xs font-medium text-red-400 hover:text-white hover:bg-red-500/10 rounded-xl transition-colors group"
                   >
-                    <div className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:bg-purple-500/20">
+                    <div className="w-7 h-7 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 group-hover:bg-red-500/20">
                       <ShieldCheck className="w-3.5 h-3.5" />
                     </div>
                     <div>
-                      <div className="font-semibold text-purple-300">Admin Studio</div>
+                      <div className="font-semibold text-red-400">Admin Studio</div>
                       <div className="text-[10px] text-neutral-500">Manage agency operations</div>
                     </div>
                   </Link>
@@ -244,7 +244,7 @@ export default function Navbar() {
                 <Link
                   href="/admin"
                   onClick={() => setMobileOpen(false)}
-                  className="block text-center py-3 rounded-xl bg-purple-500/10 text-purple-300 font-semibold text-base border border-purple-500/20"
+                  className="block text-center py-3 rounded-xl bg-red-500/10 text-red-400 font-semibold text-base border border-red-500/20"
                 >
                   Admin Studio
                 </Link>
